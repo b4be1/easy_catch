@@ -12,15 +12,12 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self):
-        # Number of time intervals l
-        self.l = 10
-
+    def __init__(self, x0, (w_cl, R), dt):
         # Time step duration dt
-        self.dt = 1.0 / self.l
+        self.dt = dt
 
         # State x
-        self.x = cat.struct_symSX(['T', 'x_b', 'y_b', 'z_b',
+        self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
                                    'x_c', 'y_c'])
         # Control u
@@ -35,11 +32,7 @@ class Model:
         self.nz = self.z.size
 
         # Initial state x0
-        self.x0 = ca.DMatrix([5, 0, 0, 0, 5, 5, 10, 5, 0])
-
-        # Nominal controls U0
-        self.U0 = self.u.repeated(ca.DMatrix.zeros(self.nu, self.l))
-        self.U0[:, 'v'] = 3
+        self.x0 = x0
 
         # Dynamics
         [self.f, self.F, self.Fj_x,
@@ -53,10 +46,10 @@ class Model:
         # N = self.create_observation_covariance()
 
         # Initialize cost functions
-        self.w_cl = 1e1
+        self.w_cl = w_cl
         self.cl = self.create_final_cost()
 
-        self.R = ca.diagcat([1, 0]) * self.x['T'] / self.l
+        self.R = R * self.dt
         self.c = self.create_running_cost()
 
     def dynamics_init(self):
@@ -79,12 +72,11 @@ class Model:
 
     def create_continuous_dynamics(self):
         # Unpack arguments
-        [T, x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c] = self.x[...]
+        [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c] = self.x[...]
         [v, phi] = self.u[...]
 
         # Define the ordinary differential equation (ODE)
         rhs = cat.struct_SX(self.x)
-        rhs['T'] = 0
         rhs['x_b'] = vx_b
         rhs['y_b'] = vy_b
         rhs['z_b'] = vz_b
@@ -97,7 +89,7 @@ class Model:
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['x_dot']}
         return ca.SXFunction('Continuous dynamics',
-                             [self.x, self.u], [T * rhs], op)
+                             [self.x, self.u], [rhs], op)
 
     def discretize(self, continuous_dynamics):
         """Continuous dynamics is discretized with time step dt
@@ -154,7 +146,7 @@ class Model:
                              [self.x], [self.w_cl * final_cost], op)
 
     def create_running_cost(self):
-        cost = 0.5 * ca.mul([self.u.T, self.R, self.u])
+        cost = 0.5 * ca.mul([self.u.cat.T, self.R, self.u.cat])
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u], [cost], op)
