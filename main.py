@@ -3,9 +3,6 @@ from __future__ import division
 import numpy as np
 import casadi as ca
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.axes3d import Axes3D
-
 from model import Model
 from simulator import Simulator
 from planner import Planner
@@ -30,7 +27,7 @@ R = 1e-1 * ca.diagcat([1, 0])
 dt = 0.1
 model = Model(x0, (w_cl, R), dt)
 
-# -------------------------- Create simulator ------------------------------ #
+# --------------------------- Create simulator ----------------------------- #
 # Time horizon
 l = 10
 # Nominal controls for simulation
@@ -41,20 +38,21 @@ simulator = Simulator()
 
 
 # ============================================================================
-#                           Simulate a trajectory
+#                           Simulate trajectory
 # ============================================================================
 # Get a single noise-free trajectory
 x_all = simulator.simulate_trajectory(model, u_all)
-Plotter.plot_trajectory(x_all)
-Plotter.plot_trajectory_3D(x_all)
+Plotter.plot_trajectory(x_all, u_all)
+Plotter.plot_trajectory_3D(x_all, u_all)
 
 
 # ============================================================================
-#                             Plan a trajectory
+#                             Plan trajectory
 # ============================================================================
 plan = Planner.create_plan(model, l)
 x_all = plan.prefix['X']
-Plotter.plot_trajectory(x_all)
+u_all = plan.prefix['U']
+Plotter.plot_trajectory(x_all, u_all)
 
 
 
