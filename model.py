@@ -7,15 +7,12 @@ __author__ = 'belousov'
 
 
 class Model:
-    """Model of the catcher and the ball"""
+    """Ball and catcher"""
 
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
     def __init__(self, x0, (w_cl, R), dt):
-        # Time step duration dt
-        self.dt = dt
-
         # State x
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
@@ -36,7 +33,7 @@ class Model:
 
         # Dynamics
         [self.f, self.F, self.Fj_x,
-         self.h, self.hj_x] = self.dynamics_init()
+         self.h, self.hj_x] = self._dynamics_init(dt)
 
         # -------- Kalman filter parameters -------- #
         # System noise covariance matrix M
@@ -46,31 +43,28 @@ class Model:
         # N = self.create_observation_covariance()
 
         # Initialize cost functions
-        self.w_cl = w_cl
-        self.cl = self.create_final_cost()
+        self.cl = self._create_final_cost_function(w_cl)
+        self.c = self._create_running_cost_function(R * dt)
 
-        self.R = R * self.dt
-        self.c = self.create_running_cost()
-
-    def dynamics_init(self):
+    def _dynamics_init(self, dt):
         # Continuous dynamics x_dot = f(x, u)
-        f = self.create_continuous_dynamics()
+        f = self._create_continuous_dynamics()
 
         # Discrete dynamics x_next = F(x, u)
-        F = self.discretize(f)
+        F = self._discretize(f, dt)
 
         # Linearize discrete dynamics dx_next/dx
         Fj_x = F.jacobian('x')
 
         # Observation function z = h(x)
-        h = self.create_observation_function()
+        h = self._create_observation_function()
 
         # Linearize observation function dz/dx
         hj_x = h.jacobian('x')
 
         return [f, F, Fj_x, h, hj_x]
 
-    def create_continuous_dynamics(self):
+    def _create_continuous_dynamics(self):
         # Unpack arguments
         [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c] = self.x[...]
         [v, phi] = self.u[...]
@@ -91,21 +85,22 @@ class Model:
         return ca.SXFunction('Continuous dynamics',
                              [self.x, self.u], [rhs], op)
 
-    def discretize(self, continuous_dynamics):
+    def _discretize(self, continuous_dynamics, dt):
         """Continuous dynamics is discretized with time step dt
 
         :param continuous_dynamics: f: [x, u] -> x_dot
+        :param dt: time step
         :return: discrete_dynamics: F: [x, u] -> x_next
         """
         [x_dot] = continuous_dynamics([self.x, self.u])
-        x_next = self.x + self.dt * x_dot
+        x_next = self.x + dt * x_dot
 
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['x_next']}
         return ca.SXFunction('Discrete dynamics',
                              [self.x, self.u], [x_next], op)
 
-    def create_observation_function(self):
+    def _create_observation_function(self):
         # Define the observation
         rhs = cat.struct_SX(self.z)
         for label in self.z.keys():
@@ -116,7 +111,7 @@ class Model:
         return ca.SXFunction('Observation function',
                              [self.x], [rhs], op)
 
-    def create_observation_covariance(self):
+    def _create_observation_covariance(self):
         d = ca.veccat([ca.cos(self.x['phi']),
                        ca.sin(self.x['phi'])])
         r = ca.veccat([self.x['x_b'] - self.x['x_c'],
@@ -133,7 +128,7 @@ class Model:
               'output_scheme': ['N']}
         return ca.SXFunction('Observation covariance', [self.x], [N], op)
 
-    def create_final_cost(self):
+    def _create_final_cost_function(self, w_cl):
         # Final position
         x_b = self.x[ca.veccat, ['x_b', 'y_b']]
         x_c = self.x[ca.veccat, ['x_c', 'y_c']]
@@ -143,17 +138,21 @@ class Model:
         op = {'input_scheme': ['x'],
               'output_scheme': ['cl']}
         return ca.SXFunction('Final cost',
-                             [self.x], [self.w_cl * final_cost], op)
+                             [self.x], [w_cl * final_cost], op)
 
-    def create_running_cost(self):
-        cost = 0.5 * ca.mul([self.u.cat.T, self.R, self.u.cat])
+    def _create_running_cost_function(self, R):
+        cost = 0.5 * ca.mul([self.u.cat.T, R, self.u.cat])
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u], [cost], op)
 
+    @staticmethod
+    def _set_control_limits(lbx, ubx):
+        # v >= 0
+        lbx['U', :, 'v'] = 0
 
-
-
+        # -pi <= phi <= pi
+        lbx['U', :, 'phi'] = -ca.pi; ubx['U', :, 'phi'] = ca.pi
 
 
 
