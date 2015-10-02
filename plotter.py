@@ -48,7 +48,10 @@ class Plotter:
     # --------------------------- Observations ----------------------------- #
     @classmethod
     def plot_observed_ball_trajectory(cls, ax, z_all):
-        pass
+        x = z_all[:, 'x_b']
+        y = z_all[:, 'y_b']
+        return [ax.scatter(x, y, label='Observed ball trajectory',
+                           c='m', marker='+', s=60)]
 
     # ========================================================================
     #                               3D

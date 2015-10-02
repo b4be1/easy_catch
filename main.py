@@ -41,31 +41,25 @@ u_all[:, 'phi'] = ca.pi/3
 
 
 # ============================================================================
-#                           Simulate trajectory
+#                 Simulate trajectory and observations in 2D
 # ============================================================================
 x_all = Simulator.simulate_trajectory(model, u_all)
-
-# Plot 2D
-fig, ax = plt.subplots(figsize=(6, 6))
-Plotter.plot_trajectory(ax, x_all, u_all)
-plt.show()
-
-# Plot 3D
-fig = plt.figure(figsize=(12, 8))
-ax = fig.add_subplot(111, projection='3d')
-Plotter.plot_trajectory_3D(ax, x_all, u_all)
-plt.show()
-
-
-# ============================================================================
-#                        Simulate observed trajectory
-# ============================================================================
 z_all = Simulator.simulate_observed_trajectory(model, x_all, u_all)
 
 # Plot 2D
 fig, ax = plt.subplots(figsize=(6, 6))
+Plotter.plot_trajectory(ax, x_all, u_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
-plt.show()
+
+
+# ============================================================================
+#                   Plot trajectory and observations in 3D
+# ============================================================================
+
+# Plot 3D
+fig_3D = plt.figure(figsize=(12, 8))
+ax_3D = fig_3D.add_subplot(111, projection='3d')
+Plotter.plot_trajectory_3D(ax_3D, x_all, u_all)
 
 
 # ============================================================================
@@ -78,7 +72,6 @@ u_all = plan.prefix['U']
 # Plot 2D
 fig, ax = plt.subplots(figsize=(6, 6))
 Plotter.plot_trajectory(ax, x_all, u_all)
-plt.show()
 
 
 
@@ -90,7 +83,7 @@ plt.show()
 # ============================================================================
 #                          Model predictive control
 # ============================================================================
-
+plt.show()
 
 
 
