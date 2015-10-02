@@ -35,6 +35,8 @@ class Simulator:
         z_all = model.z.repeated(ca.horzcat(z_all))
         return z_all
 
+    @staticmethod
+    def filter_observed_trajectory(model, ??):
 
 
 

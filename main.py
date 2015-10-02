@@ -37,7 +37,7 @@ l = 10
 # Nominal controls for simulation
 u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, l))
 u_all[:, 'v'] = 2
-u_all[:, 'phi'] = ca.pi/3
+u_all[:, 'phi'] = ca.pi/2
 
 
 # ============================================================================
@@ -50,6 +50,12 @@ z_all = Simulator.simulate_observed_trajectory(model, x_all, u_all)
 fig, ax = plt.subplots(figsize=(6, 6))
 Plotter.plot_trajectory(ax, x_all, u_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
+
+
+# ============================================================================
+#                 Simulate trajectory and observations in 2D
+# ============================================================================
+Simulator.filter_observed_trajectory(model, z_all, x_all)
 
 
 # ============================================================================
@@ -74,15 +80,15 @@ fig, ax = plt.subplots(figsize=(6, 6))
 Plotter.plot_trajectory(ax, x_all, u_all)
 
 
-
-
-
-
-
-
 # ============================================================================
-#                          Model predictive control
+#                         Model predictive control
 # ============================================================================
+# for k in range(l):
+#     plan = Planner.create_plan(model, l)
+
+
+
+
 plt.show()
 
 
