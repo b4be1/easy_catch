@@ -7,12 +7,11 @@ __author__ = 'belousov'
 
 
 class Model:
-    """Ball and catcher"""
 
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, x0, (w_cl, R), dt):
+    def __init__(self, x0, dt, M, (w_cl, R)):
         # State x
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
@@ -35,16 +34,15 @@ class Model:
         [self.f, self.F, self.Fj_x,
          self.h, self.hj_x] = self._dynamics_init(dt)
 
-        # -------- Kalman filter parameters -------- #
-        # System noise covariance matrix M
-        # M = ca.DMatrix.eye(self.nx) * 1e-3
-
-        # State-dependent observation covariance matrix N = N(x)
-        # N = self.create_observation_covariance()
-
-        # Initialize cost functions
+        # Cost functions: final and running
         self.cl = self._create_final_cost_function(w_cl)
         self.c = self._create_running_cost_function(R * dt)
+
+        # System noise covariance matrix M
+        self.M = M
+
+        # State-dependent observation noise covariance matrix N = N(x)
+        self.N = self._create_observation_covariance_function()
 
     def _dynamics_init(self, dt):
         # Continuous dynamics x_dot = f(x, u)
@@ -111,9 +109,9 @@ class Model:
         return ca.SXFunction('Observation function',
                              [self.x], [rhs], op)
 
-    def _create_observation_covariance(self):
-        d = ca.veccat([ca.cos(self.x['phi']),
-                       ca.sin(self.x['phi'])])
+    def _create_observation_covariance_function(self):
+        d = ca.veccat([ca.cos(self.u['phi']),
+                       ca.sin(self.u['phi'])])
         r = ca.veccat([self.x['x_b'] - self.x['x_c'],
                        self.x['y_b'] - self.x['y_c']])
         r_cos_omega = ca.mul(d.T, r)
@@ -124,9 +122,10 @@ class Model:
         N['x_b', 'x_b'] = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
         N['y_b', 'y_b'] = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
 
-        op = {'input_scheme': ['x'],
+        op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['N']}
-        return ca.SXFunction('Observation covariance', [self.x], [N], op)
+        return ca.SXFunction('Observation covariance',
+                             [self.x, self.u], [N], op)
 
     def _create_final_cost_function(self, w_cl):
         # Final position

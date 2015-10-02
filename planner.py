@@ -5,7 +5,6 @@ __author__ = 'belousov'
 
 
 class Planner:
-    """Plan trajectories"""
 
     @classmethod
     def create_plan(cls, model, n):

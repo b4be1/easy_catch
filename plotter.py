@@ -8,19 +8,16 @@ __author__ = 'belousov'
 
 
 class Plotter:
-    """Plot simulation results"""
-
     # ========================================================================
-    #                               2D
+    #                                  2D
     # ========================================================================
+    # ---------------------------- Trajectory ------------------------------ #
     @classmethod
-    def plot_trajectory(cls, x_all, u_all):
-        fig, ax = plt.subplots(figsize=(6, 6))
+    def plot_trajectory(cls, ax, x_all, u_all):
         cls._plot_ball_trajectory('Ball trajectory', ax, x_all)
         cls._plot_catcher_trajectory('Catcher trajectory', ax, x_all)
         cls._plot_arrows('Catcher gaze', ax, x_all, u_all)
         ax.grid(True)
-        plt.show()
 
     @staticmethod
     def _plot_ball_trajectory(name, ax, x_all):
@@ -48,16 +45,18 @@ class Plotter:
                   color='r', lw=0.1)
         return [Patch(color='red', label=name)]
 
+    # --------------------------- Observations ----------------------------- #
+    @classmethod
+    def plot_observed_ball_trajectory(cls, ax, z_all):
+        pass
+
     # ========================================================================
     #                               3D
     # ========================================================================
     @classmethod
-    def plot_trajectory_3D(cls, x_all, u_all):
-        fig = plt.figure(figsize=(12, 8))
-        ax = fig.add_subplot(111, projection='3d')
+    def plot_trajectory_3D(cls, ax, x_all, u_all):
         cls._plot_ball_trajectory_3D('Ball trajectory 3D', ax, x_all)
         cls._plot_catcher_trajectory_3D('Catcher trajectory 3D', ax, x_all)
-        plt.show()
 
     @staticmethod
     def _plot_ball_trajectory_3D(name, ax, x_all):
