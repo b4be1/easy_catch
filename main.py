@@ -19,17 +19,18 @@ __author__ = 'belousov'
 # ============================================================================
 # ----------------------------- Create model ------------------------------- #
 # Initial state
-x0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0])
+m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0])
+S0 = ca.DMatrix.eye(m0.size()) * 0.25
 # Discretization step
 dt = 0.1
 # System noise matrix
-M = ca.DMatrix.eye(x0.size()) * 1e-3
+M = ca.DMatrix.eye(m0.size()) * 1e-3
 # Final cost of coordinate discrepancy
 w_cl = 1e1
 # Running cost on controls
 R = 1e-1 * ca.diagcat([1, 0])
 # Create model
-model = Model(x0, dt, M, (w_cl, R))
+model = Model((m0, S0), dt, M, (w_cl, R))
 
 # ------------------------- Simulator parameters --------------------------- #
 # Time horizon
@@ -45,17 +46,13 @@ u_all[:, 'phi'] = ca.pi/2
 # ============================================================================
 x_all = Simulator.simulate_trajectory(model, u_all)
 z_all = Simulator.simulate_observed_trajectory(model, x_all, u_all)
+b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
 # Plot 2D
-fig, ax = plt.subplots(figsize=(6, 6))
+_, ax = plt.subplots(figsize=(6, 6))
 Plotter.plot_trajectory(ax, x_all, u_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
-
-
-# ============================================================================
-#                 Simulate trajectory and observations in 2D
-# ============================================================================
-Simulator.filter_observed_trajectory(model, z_all, x_all)
+Plotter.plot_filtered_trajectory(ax, b_all)
 
 
 # ============================================================================
@@ -76,7 +73,7 @@ x_all = plan.prefix['X']
 u_all = plan.prefix['U']
 
 # Plot 2D
-fig, ax = plt.subplots(figsize=(6, 6))
+_, ax = plt.subplots(figsize=(6, 6))
 Plotter.plot_trajectory(ax, x_all, u_all)
 
 

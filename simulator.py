@@ -13,7 +13,13 @@ class Simulator:
     @staticmethod
     def simulate_trajectory(model, u_all):
         n = u_all.shape[1]
-        xk = model.x0
+
+        # Initial state is drawn from a Gaussian
+        m0 = np.array(model.m0).ravel()
+        x0 = normal(m0, model.S0)
+
+        # Dynamics
+        xk = x0
         x_all = [xk]
         for k in range(n):
             [xk_next] = model.F([xk, u_all[k]])
@@ -36,7 +42,21 @@ class Simulator:
         return z_all
 
     @staticmethod
-    def filter_observed_trajectory(model, ??):
+    def filter_observed_trajectory(model, z_all, u_all):
+        n = u_all.shape[1]
+        bk = model.b0
+        b_all = [bk]
+        for k in range(1, n+1):
+            [bk_next] = model.EKF([bk, u_all[k-1], z_all[k]])
+            b_all.append(bk_next)
+            bk = bk_next
+        b_all = model.b.repeated(ca.horzcat(b_all))
+        return b_all
+
+
+
+
+
 
 
 

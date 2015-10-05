@@ -50,7 +50,7 @@ class Planner:
         ubx = V(ca.inf)
 
         # Initial state
-        lbx['X', 0] = ubx['X', 0] = model.x0
+        lbx['X', 0] = ubx['X', 0] = model.m0
 
         # Control limits
         model._set_control_limits(lbx, ubx)

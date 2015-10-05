@@ -11,7 +11,7 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, x0, dt, M, (w_cl, R)):
+    def __init__(self, (m0, S0), dt, M, (w_cl, R)):
         # State x
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
@@ -22,28 +22,57 @@ class Model:
         # Observation z
         self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b', 'x_c', 'y_c'])
 
+        # Belief b = (mu, Sigma)
+        self.b = cat.struct_symSX([
+            cat.entry('m', struct=self.x),
+            cat.entry('S', shapestruct=(self.x, self.x))
+        ])
+
         # Sizes
         self.nx = self.x.size
         self.nu = self.u.size
         self.nz = self.z.size
 
-        # Initial state x0
-        self.x0 = x0
+        # Initial state
+        [self.m0, self.S0, self.b0] = self._state_init(m0, S0)
 
         # Dynamics
         [self.f, self.F, self.Fj_x,
          self.h, self.hj_x] = self._dynamics_init(dt)
 
+        # Noise, system noise covariance matrix M
+        self.M = M
+        # State-dependent observation noise covariance matrix N = N(x)
+        self.N = self._create_observation_covariance_function()
+
+        # Kalman filters
+        [self.EKF] = self._filters_init()
+
         # Cost functions: final and running
         self.cl = self._create_final_cost_function(w_cl)
         self.c = self._create_running_cost_function(R * dt)
 
-        # System noise covariance matrix M
-        self.M = M
+    # ========================================================================
+    #                           Initial condition
+    # ========================================================================
+    def set_initial_condition(self, m0, S0):
+        self.m0 = m0[:]
+        self.S0 = ca.densify(S0)
+        self.b0['m'] = self.m0
+        self.b0['S'] = self.S0
 
-        # State-dependent observation noise covariance matrix N = N(x)
-        self.N = self._create_observation_covariance_function()
+    def _state_init(self, m0, S0):
+        S0 = ca.densify(S0)
 
+        b0 = self.b()
+        b0['m'] = m0
+        b0['S'] = S0
+
+        return [m0[:], S0, b0]
+
+    # ========================================================================
+    #                                Dynamics
+    # ========================================================================
     def _dynamics_init(self, dt):
         # Continuous dynamics x_dot = f(x, u)
         f = self._create_continuous_dynamics()
@@ -109,6 +138,9 @@ class Model:
         return ca.SXFunction('Observation function',
                              [self.x], [rhs], op)
 
+    # ========================================================================
+    #                               Noise
+    # ========================================================================
     def _create_observation_covariance_function(self):
         d = ca.veccat([ca.cos(self.u['phi']),
                        ca.sin(self.u['phi'])])
@@ -127,6 +159,54 @@ class Model:
         return ca.SXFunction('Observation covariance',
                              [self.x, self.u], [N], op)
 
+    # ========================================================================
+    #                           Kalman filters
+    # ========================================================================
+    def _filters_init(self):
+        # Extended Kalman Filter b_next = EKF(b, u, z)
+        EKF = self._create_EKF()
+        return [EKF]
+
+    def _create_EKF(self):
+        """Extended Kalman filter"""
+        b_next = cat.struct_SX(self.b)
+
+        # Compute the mean
+        [mu_bar] = self.F([self.b['m'], self.u])
+
+        # Compute linearization
+        [A, _] = self.Fj_x([self.b['m'], self.u])
+        [C, _] = self.hj_x([mu_bar])
+
+        # Predict the covariance
+        S_bar = ca.mul([ A, self.b['S'], A.T ]) + self.M
+
+        # Get observation noise covariance
+        [N] = self.N([self.b['m'], self.u])
+
+        # Compute the inverse
+        P = ca.mul([C, S_bar, C.T]) + N
+        P_inv = ca.inv(P)
+
+        # Kalman gain
+        K = ca.mul([S_bar, C.T, P_inv])
+
+        # Predict observation
+        [z_bar] = self.h([mu_bar])
+
+        # Update equations
+        b_next['m'] = mu_bar + ca.mul([K, self.z - z_bar])
+        b_next['S'] = ca.mul(ca.DMatrix.eye(self.nx) - ca.mul(K, C), S_bar)
+
+        # (b, u, z) -> b_next
+        op = {'input_scheme': ['b', 'u', 'z'],
+              'output_scheme': ['b_next']}
+        return ca.SXFunction('Extended Kalman filter',
+                             [self.b, self.u, self.z], [b_next], op)
+
+    # ========================================================================
+    #                           Cost functions
+    # ========================================================================
     def _create_final_cost_function(self, w_cl):
         # Final position
         x_b = self.x[ca.veccat, ['x_b', 'y_b']]
@@ -145,6 +225,9 @@ class Model:
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u], [cost], op)
 
+    # ========================================================================
+    #                      Function called by Planner
+    # ========================================================================
     @staticmethod
     def _set_control_limits(lbx, ubx):
         # v >= 0
