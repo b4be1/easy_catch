@@ -11,14 +11,8 @@ __author__ = 'belousov'
 class Simulator:
 
     @staticmethod
-    def simulate_trajectory(model, u_all):
-        n = u_all.shape[1]
-
-        # Initial state is drawn from a Gaussian
-        m0 = np.array(model.m0).ravel()
-        x0 = normal(m0, model.S0)
-
-        # Dynamics
+    def simulate_trajectory(model, x0, u_all):
+        n = len(u_all[:])
         xk = x0
         x_all = [xk]
         for k in range(n):
@@ -31,7 +25,7 @@ class Simulator:
 
     @staticmethod
     def simulate_observed_trajectory(model, x_all, u_all):
-        n = u_all.shape[1]
+        n = len(u_all[:])
         z_all = model.h([x_all[0]])
         for k in range(1, n+1):
             [zk] = model.h([x_all[k]])
@@ -43,7 +37,7 @@ class Simulator:
 
     @staticmethod
     def filter_observed_trajectory(model, z_all, u_all):
-        n = u_all.shape[1]
+        n = len(u_all[:])
         bk = model.b0
         b_all = [bk]
         for k in range(1, n+1):
@@ -53,7 +47,10 @@ class Simulator:
         b_all = model.b.repeated(ca.horzcat(b_all))
         return b_all
 
-
+    @staticmethod
+    def draw_initial_state(model):
+        mu0 = np.array(model.m0).ravel()
+        return model.x(normal(mu0, model.S0))
 
 
 

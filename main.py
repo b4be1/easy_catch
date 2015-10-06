@@ -2,6 +2,7 @@ from __future__ import division
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 import casadi as ca
 
 from model import Model
@@ -18,8 +19,9 @@ __author__ = 'belousov'
 #                              Initialization
 # ============================================================================
 # ----------------------------- Create model ------------------------------- #
-# Initial state
+# Initial mean
 m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0])
+# Initial covariance
 S0 = ca.DMatrix.eye(m0.size()) * 0.25
 # Discretization step
 dt = 0.1
@@ -34,9 +36,9 @@ model = Model((m0, S0), dt, M, (w_cl, R))
 
 # ------------------------- Simulator parameters --------------------------- #
 # Time horizon
-l = 10
+n = 10
 # Nominal controls for simulation
-u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, l))
+u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, n))
 u_all[:, 'v'] = 2
 u_all[:, 'phi'] = ca.pi/2
 
@@ -44,7 +46,9 @@ u_all[:, 'phi'] = ca.pi/2
 # ============================================================================
 #                 Simulate trajectory and observations in 2D
 # ============================================================================
-x_all = Simulator.simulate_trajectory(model, u_all)
+# Initial state is drawn from the Gaussian distribution
+x0 = Simulator.draw_initial_state(model)
+x_all = Simulator.simulate_trajectory(model, x0, u_all)
 z_all = Simulator.simulate_observed_trajectory(model, x_all, u_all)
 b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
@@ -68,7 +72,7 @@ Plotter.plot_trajectory_3D(ax_3D, x_all, u_all)
 # ============================================================================
 #                             Plan trajectory
 # ============================================================================
-plan = Planner.create_plan(model, l)
+plan = Planner.create_plan(model, n)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
 
@@ -80,16 +84,64 @@ Plotter.plot_trajectory(ax, x_all, u_all)
 # ============================================================================
 #                         Model predictive control
 # ============================================================================
-# for k in range(l):
-#     plan = Planner.create_plan(model, l)
+# ----------------------------- Simulation --------------------------------- #
+# Simulator: draw initial state from the Gaussian distribution
+model.set_initial_condition(m0, S0)
+x0 = Simulator.draw_initial_state(model)
 
+# Prepare a place to store simulation results
+X_all = []
+U_all = []
+B_all = []
+
+# Iterate until the ball hits the ground
+while True:
+    # Planner: estimate how many planning steps are required
+    n = Planner.estimate_planning_horizon_length(model, dt)
+
+    # Quit if horizon is zero
+    if n == 0:
+        break
+
+    # Planner: plan for n time steps
+    plan = Planner.create_plan(model, n)
+    xp_all = plan.prefix['X']
+    u_all = plan.prefix['U']
+
+    # Simulator: execute the first action
+    x_all = Simulator.simulate_trajectory(model, x0, [u_all[0]])
+    z_all = Simulator.simulate_observed_trajectory(model, x_all, [u_all[0]])
+    b_all = Simulator.filter_observed_trajectory(model, z_all, [u_all[0]])
+
+    # Save simulation results
+    X_all.append(x_all)
+    U_all.append(u_all)
+    B_all.append(b_all)
+
+    # Advance time
+    x0 = x_all[-1]
+    model.set_initial_condition(b_all[-1, 'm'], b_all[-1, 'S'])
+
+# ------------------------------- Plotting --------------------------------- #
+fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+
+# Appearance
+axes[0].set_title("Model predictive control, simulation")
+axes[1].set_title("Model predictive control, plans")
+for ax in axes:
+    ax.grid(True)
+    ax.set_aspect('equal')
+
+# Plot
+for k, _ in enumerate(X_all):
+    Plotter.plot_trajectory(axes[0], X_all[k], U_all[k])
+    Plotter.plot_filtered_trajectory(axes[0], B_all[k])
+    plt.waitforbuttonpress()
+    fig.canvas.draw()
 
 
 
 plt.show()
-
-
-
 
 
 

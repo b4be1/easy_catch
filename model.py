@@ -96,7 +96,7 @@ class Model:
         [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c] = self.x[...]
         [v, phi] = self.u[...]
 
-        # Define the ordinary differential equation (ODE)
+        # Define the governing ordinary differential equation (ODE)
         rhs = cat.struct_SX(self.x)
         rhs['x_b'] = vx_b
         rhs['y_b'] = vy_b
@@ -112,14 +112,14 @@ class Model:
         return ca.SXFunction('Continuous dynamics',
                              [self.x, self.u], [rhs], op)
 
-    def _discretize(self, continuous_dynamics, dt):
+    def _discretize(self, f, dt):
         """Continuous dynamics is discretized with time step dt
 
-        :param continuous_dynamics: f: [x, u] -> x_dot
+        :param f: f: [x, u] -> x_dot
         :param dt: time step
         :return: discrete_dynamics: F: [x, u] -> x_next
         """
-        [x_dot] = continuous_dynamics([self.x, self.u])
+        [x_dot] = f([self.x, self.u])
         x_next = self.x + dt * x_dot
 
         op = {'input_scheme': ['x', 'u'],
@@ -234,14 +234,5 @@ class Model:
         lbx['U', :, 'v'] = 0
 
         # -pi <= phi <= pi
-        lbx['U', :, 'phi'] = -ca.pi; ubx['U', :, 'phi'] = ca.pi
-
-
-
-
-
-
-
-
-
-
+        lbx['U', :, 'phi'] = -ca.pi
+        ubx['U', :, 'phi'] = ca.pi
