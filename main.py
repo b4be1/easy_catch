@@ -25,6 +25,8 @@ m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0])
 S0 = ca.DMatrix.eye(m0.size()) * 0.25
 # Discretization step
 dt = 0.1
+# Reaction time (in units of dt)
+n_delay = 3
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 # Final cost of coordinate discrepancy
@@ -32,7 +34,7 @@ w_cl = 1e1
 # Running cost on controls
 R = 1e-1 * ca.diagcat([1, 0])
 # Create model
-model = Model((m0, S0), dt, M, (w_cl, R))
+model = Model((m0, S0), dt, n_delay, M, (w_cl, R))
 
 # ------------------------- Simulator parameters --------------------------- #
 # Time horizon
@@ -92,7 +94,16 @@ x0 = Simulator.draw_initial_state(model)
 # Prepare a place to store simulation results
 X_all = []
 U_all = []
+XP_all = []
 B_all = []
+
+# Simulator: simulate first n_delay time-steps with static controls
+# u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
+# u_all[:, 'phi'] = ca.pi/2
+# x_all = Simulator.simulate_trajectory(model, x0, u_all)
+# z_all = Simulator.simulate_observed_trajectory(model, x_all, u_all)
+# b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
+
 
 # Iterate until the ball hits the ground
 while True:
@@ -116,6 +127,7 @@ while True:
     # Save simulation results
     X_all.append(x_all)
     U_all.append(u_all)
+    XP_all.append(xp_all)
     B_all.append(b_all)
 
     # Advance time
@@ -134,10 +146,17 @@ for ax in axes:
 
 # Plot
 for k, _ in enumerate(X_all):
+    # Simulation
     Plotter.plot_trajectory(axes[0], X_all[k], U_all[k])
     Plotter.plot_filtered_trajectory(axes[0], B_all[k])
     plt.waitforbuttonpress()
     fig.canvas.draw()
+
+    # Planning
+    Plotter.plot_trajectory(axes[1], XP_all[k], U_all[k])
+    plt.waitforbuttonpress()
+    fig.canvas.draw()
+
 
 
 

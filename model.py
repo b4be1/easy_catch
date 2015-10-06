@@ -11,7 +11,10 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, (m0, S0), dt, M, (w_cl, R)):
+    def __init__(self, (m0, S0), dt, n_delay, M, (w_cl, R)):
+        # MPC reaction delay (in units of dt)
+        self.n_delay = n_delay
+
         # State x
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
