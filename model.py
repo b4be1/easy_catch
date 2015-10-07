@@ -1,5 +1,8 @@
 from __future__ import division
 
+import numpy as np
+from numpy.random import multivariate_normal as normal
+
 import casadi as ca
 import casadi.tools as cat
 
@@ -12,18 +15,21 @@ class Model:
     g = 9.81
 
     def __init__(self, (m0, S0), dt, n_delay, M, (w_cl, R)):
+        # Discretization time step, cannot be changed after creation
+        self.dt = dt
+
         # MPC reaction delay (in units of dt)
         self.n_delay = n_delay
 
         # State x
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
-                                   'x_c', 'y_c'])
+                                   'x_c', 'y_c', 'phi'])
         # Control u
-        self.u = cat.struct_symSX(['v', 'phi'])
+        self.u = cat.struct_symSX(['v', 'w'])
 
         # Observation z
-        self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b', 'x_c', 'y_c'])
+        self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b', 'x_c', 'y_c', 'phi'])
 
         # Belief b = (mu, Sigma)
         self.b = cat.struct_symSX([
@@ -37,51 +43,65 @@ class Model:
         self.nz = self.z.size
 
         # Initial state
-        [self.m0, self.S0, self.b0] = self._state_init(m0, S0)
+        [self.x0, self.m0, self.S0, self.b0] = self._state_init(m0, S0)
 
         # Dynamics
         [self.f, self.F, self.Fj_x,
-         self.h, self.hj_x] = self._dynamics_init(dt)
+         self.h, self.hj_x] = self._dynamics_init()
 
-        # Noise, system noise covariance matrix M
-        self.M = M
-        # State-dependent observation noise covariance matrix N = N(x)
+        # Noise, system noise covariance matrix M = M(x, u)
+        self.M = self._create_system_covariance_function(M)
+        # State-dependent observation noise covariance matrix N = N(x, u)
         self.N = self._create_observation_covariance_function()
+
+        # Noisy dynamics
+        [self.Fn, self.hn] = self._noisy_dynamics_init()
 
         # Kalman filters
         [self.EKF] = self._filters_init()
 
         # Cost functions: final and running
         self.cl = self._create_final_cost_function(w_cl)
-        self.c = self._create_running_cost_function(R * dt)
+        self.c = self._create_running_cost_function(R)
 
     # ========================================================================
     #                           Initial condition
     # ========================================================================
-    def set_initial_condition(self, m0, S0):
-        self.m0 = m0[:]
-        self.S0 = ca.densify(S0)
+    def set_initial_state(self, x0, m0, S0):
+        self.x0 = self.x(x0)
+        self.m0 = self.x(m0[:])
+        self.S0 = self.x.squared(ca.densify(S0))
         self.b0['m'] = self.m0
         self.b0['S'] = self.S0
 
+    def init_x0(self):
+        self.x0 = self._draw_initial_state(self.m0, self.S0)
+
     def _state_init(self, m0, S0):
-        S0 = ca.densify(S0)
+        m0 = self.x(m0[:])
+        S0 = self.x.squared(ca.densify(S0))
+        x0 = self._draw_initial_state(m0, S0)
 
         b0 = self.b()
         b0['m'] = m0
         b0['S'] = S0
 
-        return [m0[:], S0, b0]
+        return [x0, m0, S0, b0]
+
+    def _draw_initial_state(self, m0, S0):
+        m0_array = np.array(m0[...]).ravel()
+        S0_array = S0.cast()
+        return self.x(normal(m0_array, S0_array))
 
     # ========================================================================
     #                                Dynamics
     # ========================================================================
-    def _dynamics_init(self, dt):
+    def _dynamics_init(self):
         # Continuous dynamics x_dot = f(x, u)
         f = self._create_continuous_dynamics()
 
         # Discrete dynamics x_next = F(x, u)
-        F = self._discretize(f, dt)
+        F = self._discretize(f)
 
         # Linearize discrete dynamics dx_next/dx
         Fj_x = F.jacobian('x')
@@ -94,10 +114,19 @@ class Model:
 
         return [f, F, Fj_x, h, hj_x]
 
+    def _noisy_dynamics_init(self):
+        # Discrete dynamics x_next = F(x, u) + sqrt(M(x, u)) * m, m ~ N(0, I)
+        Fn = self._noisy_discrete_dynamics
+
+        # Noisy observation function
+        hn = self._noisy_observation_function
+
+        return [Fn, hn]
+
     def _create_continuous_dynamics(self):
         # Unpack arguments
-        [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c] = self.x[...]
-        [v, phi] = self.u[...]
+        [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c, phi] = self.x[...]
+        [v, w] = self.u[...]
 
         # Define the governing ordinary differential equation (ODE)
         rhs = cat.struct_SX(self.x)
@@ -109,21 +138,21 @@ class Model:
         rhs['vz_b'] = -self.g
         rhs['x_c'] = v * ca.cos(phi)
         rhs['y_c'] = v * ca.sin(phi)
+        rhs['phi'] = w
 
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['x_dot']}
         return ca.SXFunction('Continuous dynamics',
                              [self.x, self.u], [rhs], op)
 
-    def _discretize(self, f, dt):
+    def _discretize(self, f):
         """Continuous dynamics is discretized with time step dt
 
         :param f: f: [x, u] -> x_dot
-        :param dt: time step
         :return: discrete_dynamics: F: [x, u] -> x_next
         """
         [x_dot] = f([self.x, self.u])
-        x_next = self.x + dt * x_dot
+        x_next = self.x + self.dt * x_dot
 
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['x_next']}
@@ -141,12 +170,36 @@ class Model:
         return ca.SXFunction('Observation function',
                              [self.x], [rhs], op)
 
+
+    # ========================================================================
+    #                            Noisy dynamics
+    # ========================================================================
+    def _noisy_discrete_dynamics(self, (x, u)):
+        [x_next] = self.F([x, u])
+        [M] = self.M([x, u])
+        x_next += normal(np.zeros(self.nx), M)
+        return [x_next]
+
+    def _noisy_observation_function(self, (x,)):
+        [z] = self.h([x])
+        [N] = self.N([x])
+        z += normal(np.zeros(self.nz), N)
+        return [z]
+
+
     # ========================================================================
     #                               Noise
     # ========================================================================
+    # This function does nothing now: M(x, u) = M
+    def _create_system_covariance_function(self, M):
+        op = {'input_scheme': ['x', 'u'],
+              'output_scheme': ['M']}
+        return ca.SXFunction('System covariance',
+                             [self.x, self.u], [M], op)
+
     def _create_observation_covariance_function(self):
-        d = ca.veccat([ca.cos(self.u['phi']),
-                       ca.sin(self.u['phi'])])
+        d = ca.veccat([ca.cos(self.x['phi']),
+                       ca.sin(self.x['phi'])])
         r = ca.veccat([self.x['x_b'] - self.x['x_c'],
                        self.x['y_b'] - self.x['y_c']])
         r_cos_omega = ca.mul(d.T, r)
@@ -157,10 +210,11 @@ class Model:
         N['x_b', 'x_b'] = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
         N['y_b', 'y_b'] = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
 
-        op = {'input_scheme': ['x', 'u'],
+        op = {'input_scheme': ['x'],
               'output_scheme': ['N']}
         return ca.SXFunction('Observation covariance',
-                             [self.x, self.u], [N], op)
+                             [self.x], [N], op)
+
 
     # ========================================================================
     #                           Kalman filters
@@ -181,11 +235,12 @@ class Model:
         [A, _] = self.Fj_x([self.b['m'], self.u])
         [C, _] = self.hj_x([mu_bar])
 
-        # Predict the covariance
-        S_bar = ca.mul([ A, self.b['S'], A.T ]) + self.M
+        # Get system and observation noises, as if the state was mu_bar
+        [M] = self.M([self.b['m'], self.u])
+        [N] = self.N([self.b['m']])
 
-        # Get observation noise covariance
-        [N] = self.N([self.b['m'], self.u])
+        # Predict the covariance
+        S_bar = ca.mul([A, self.b['S'], A.T]) + M
 
         # Compute the inverse
         P = ca.mul([C, S_bar, C.T]) + N
@@ -223,7 +278,7 @@ class Model:
                              [self.x], [w_cl * final_cost], op)
 
     def _create_running_cost_function(self, R):
-        cost = 0.5 * ca.mul([self.u.cat.T, R, self.u.cat])
+        cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u], [cost], op)
@@ -235,7 +290,3 @@ class Model:
     def _set_control_limits(lbx, ubx):
         # v >= 0
         lbx['U', :, 'v'] = 0
-
-        # -pi <= phi <= pi
-        lbx['U', :, 'phi'] = -ca.pi
-        ubx['U', :, 'phi'] = ca.pi

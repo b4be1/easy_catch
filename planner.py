@@ -74,15 +74,14 @@ class Planner:
         return [g, lbg, ubg]
 
     @staticmethod
-    def estimate_planning_horizon_length(model, dt):
+    def estimate_planning_horizon_length(model):
         # 1. Unpack initial z-coordinate and z-velocity
-        m0_named = model.x(model.m0)
-        z_b0 = m0_named['z_b']
-        vz_b0 = m0_named['vz_b']
+        z_b0 = model.m0['z_b']
+        vz_b0 = model.m0['vz_b']
         # 2. Use kinematic equation of the ball to find time
         T = (vz_b0 + ca.sqrt(vz_b0 ** 2 + 2 * model.g * z_b0)) / model.g
         # 3. Divide time by time-step duration
-        return int(float(T) // dt)
+        return int(float(T) // model.dt)
 
 
 

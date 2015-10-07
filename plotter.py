@@ -13,10 +13,10 @@ class Plotter:
     # ========================================================================
     # ---------------------------- Trajectory ------------------------------ #
     @classmethod
-    def plot_trajectory(cls, ax, x_all, u_all):
+    def plot_trajectory(cls, ax, x_all):
         cls._plot_ball_trajectory('Ball trajectory', ax, x_all)
         cls._plot_catcher_trajectory('Catcher trajectory', ax, x_all)
-        cls._plot_arrows('Catcher gaze', ax, x_all, u_all)
+        cls._plot_arrows('Catcher gaze', ax, x_all)
         ax.grid(True)
 
     @staticmethod
@@ -34,10 +34,10 @@ class Plotter:
                        marker='o', markersize=4, fillstyle='none')
 
     @staticmethod
-    def _plot_arrows(name, ax, x_all, u_all):
-        x = x_all[:-1, 'x_c']
-        y = x_all[:-1, 'y_c']
-        phi = u_all[:, 'phi']
+    def _plot_arrows(name, ax, x_all):
+        x = x_all[:, 'x_c']
+        y = x_all[:, 'y_c']
+        phi = x_all[:, 'phi']
         x_vec = ca.cos(phi)
         y_vec = ca.sin(phi)
         ax.quiver(x, y, x_vec, y_vec,
@@ -97,7 +97,7 @@ class Plotter:
     #                               3D
     # ========================================================================
     @classmethod
-    def plot_trajectory_3D(cls, ax, x_all, u_all):
+    def plot_trajectory_3D(cls, ax, x_all):
         cls._plot_ball_trajectory_3D('Ball trajectory 3D', ax, x_all)
         cls._plot_catcher_trajectory_3D('Catcher trajectory 3D', ax, x_all)
 

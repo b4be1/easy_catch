@@ -20,7 +20,7 @@ __author__ = 'belousov'
 # ============================================================================
 # ----------------------------- Create model ------------------------------- #
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0])
+m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi/2])
 # Initial covariance
 S0 = ca.DMatrix.eye(m0.size()) * 0.25
 # Discretization step
@@ -29,10 +29,11 @@ dt = 0.1
 n_delay = 3
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
+M[-3:, -3:] = ca.DMatrix.eye(3) * 1e-5  # catcher's dynamics is less noisy
 # Final cost of coordinate discrepancy
 w_cl = 1e1
 # Running cost on controls
-R = 1e-1 * ca.diagcat([1, 0])
+R = 1e-1 * ca.diagcat([1, 1])
 # Create model
 model = Model((m0, S0), dt, n_delay, M, (w_cl, R))
 
@@ -42,21 +43,21 @@ n = 10
 # Nominal controls for simulation
 u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, n))
 u_all[:, 'v'] = 2
-u_all[:, 'phi'] = ca.pi/2
+u_all[:, 'w'] = 0.5
 
 
 # ============================================================================
 #                 Simulate trajectory and observations in 2D
 # ============================================================================
-# Initial state is drawn from the Gaussian distribution
-x0 = Simulator.draw_initial_state(model)
-x_all = Simulator.simulate_trajectory(model, x0, u_all)
-z_all = Simulator.simulate_observed_trajectory(model, x_all, u_all)
+# Initial state is drawn from N(m0, S0)
+model.init_x0()
+x_all = Simulator.simulate_trajectory(model, u_all)
+z_all = Simulator.simulate_observed_trajectory(model, x_all)
 b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
 # Plot 2D
 _, ax = plt.subplots(figsize=(6, 6))
-Plotter.plot_trajectory(ax, x_all, u_all)
+Plotter.plot_trajectory(ax, x_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
 Plotter.plot_filtered_trajectory(ax, b_all)
 
@@ -68,7 +69,7 @@ Plotter.plot_filtered_trajectory(ax, b_all)
 # Plot 3D
 fig_3D = plt.figure(figsize=(12, 8))
 ax_3D = fig_3D.add_subplot(111, projection='3d')
-Plotter.plot_trajectory_3D(ax_3D, x_all, u_all)
+Plotter.plot_trajectory_3D(ax_3D, x_all)
 
 
 # ============================================================================
@@ -80,16 +81,17 @@ u_all = plan.prefix['U']
 
 # Plot 2D
 _, ax = plt.subplots(figsize=(6, 6))
-Plotter.plot_trajectory(ax, x_all, u_all)
+Plotter.plot_trajectory(ax, x_all)
 
 
+plt.show()
 # ============================================================================
 #                         Model predictive control
 # ============================================================================
 # ----------------------------- Simulation --------------------------------- #
-# Simulator: draw initial state from the Gaussian distribution
-model.set_initial_condition(m0, S0)
-x0 = Simulator.draw_initial_state(model)
+# Reset the model in case it was used before
+model.set_initial_state(m0, m0, S0)
+model.init_x0()
 
 # Prepare a place to store simulation results
 X_all = []
@@ -108,7 +110,7 @@ B_all = []
 # Iterate until the ball hits the ground
 while True:
     # Planner: estimate how many planning steps are required
-    n = Planner.estimate_planning_horizon_length(model, dt)
+    n = Planner.estimate_planning_horizon_length(model)
 
     # Quit if horizon is zero
     if n == 0:
@@ -120,8 +122,8 @@ while True:
     u_all = plan.prefix['U']
 
     # Simulator: execute the first action
-    x_all = Simulator.simulate_trajectory(model, x0, [u_all[0]])
-    z_all = Simulator.simulate_observed_trajectory(model, x_all, [u_all[0]])
+    x_all = Simulator.simulate_trajectory(model, [u_all[0]])
+    z_all = Simulator.simulate_observed_trajectory(model, x_all)
     b_all = Simulator.filter_observed_trajectory(model, z_all, [u_all[0]])
 
     # Save simulation results
@@ -131,8 +133,7 @@ while True:
     B_all.append(b_all)
 
     # Advance time
-    x0 = x_all[-1]
-    model.set_initial_condition(b_all[-1, 'm'], b_all[-1, 'S'])
+    model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
 
 # ------------------------------- Plotting --------------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
@@ -147,28 +148,24 @@ for ax in axes:
 # Plot
 for k, _ in enumerate(X_all):
     # Simulation
-    Plotter.plot_trajectory(axes[0], X_all[k], U_all[k])
+    Plotter.plot_trajectory(axes[0], X_all[k])
     Plotter.plot_filtered_trajectory(axes[0], B_all[k])
     plt.waitforbuttonpress()
     fig.canvas.draw()
 
     # Planning
-    Plotter.plot_trajectory(axes[1], XP_all[k], U_all[k])
+    Plotter.plot_trajectory(axes[1], XP_all[k])
     plt.waitforbuttonpress()
     fig.canvas.draw()
 
 
 
 
-plt.show()
 
 
-
-
-
-
-
-
+# ============================================================================
+#                             Experimental area
+# ============================================================================
 
 
 
