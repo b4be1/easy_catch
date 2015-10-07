@@ -14,7 +14,7 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, (m0, S0), dt, n_rk, n_delay, M, (w_cl, R)):
+    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -40,13 +40,22 @@ class Model:
             cat.entry('S', shapestruct=(self.x, self.x))
         ])
 
+        # Extended belief eb = (mu, Sigma, L) for plotting
+        self.eb = cat.struct_symSX([
+            cat.entry('m', struct=self.x),
+            cat.entry('S', shapestruct=(self.x, self.x)),
+            cat.entry('L', shapestruct=(self.x, self.x))
+        ])
+
         # Sizes
         self.nx = self.x.size
         self.nu = self.u.size
         self.nz = self.z.size
 
         # Initial state
-        [self.x0, self.m0, self.S0, self.b0] = self._state_init(m0, S0)
+        [self.x0,
+         self.m0, self.S0, self.L0,
+         self.b0, self.eb0] = self._state_init(m0, S0, L0)
 
         # Dynamics
         [self.f, self.F, self.Fj_x,
@@ -61,7 +70,7 @@ class Model:
         [self.Fn, self.hn] = self._noisy_dynamics_init()
 
         # Kalman filters
-        [self.EKF] = self._filters_init()
+        [self.EKF, self.EBF] = self._filters_init()
 
         # Cost functions: final and running
         self.cl = self._create_final_cost_function(w_cl)
@@ -84,16 +93,23 @@ class Model:
     def init_x0(self):
         self.x0 = self._draw_initial_state(self.m0, self.S0)
 
-    def _state_init(self, m0, S0):
+    def _state_init(self, m0, S0, L0):
         m0 = self.x(m0[:])
         S0 = self.x.squared(ca.densify(S0))
+        L0 = self.x.squared(ca.densify(L0))
+
         x0 = self._draw_initial_state(m0, S0)
 
         b0 = self.b()
         b0['m'] = m0
         b0['S'] = S0
 
-        return [x0, m0, S0, b0]
+        eb0 = self.eb()
+        eb0['m'] = m0
+        eb0['S'] = S0
+        eb0['L'] = L0
+
+        return [x0, m0, S0, L0, b0, eb0]
 
     def _draw_initial_state(self, m0, S0):
         m0_array = np.array(m0[...]).ravel()
@@ -234,10 +250,52 @@ class Model:
     def _filters_init(self):
         # Extended Kalman Filter b_next = EKF(b, u, z)
         EKF = self._create_EKF()
-        return [EKF]
+
+        # Extended belief dynamics
+        EBF = self._create_EBF()
+
+        return [EKF, EBF]
 
     def _create_EKF(self):
         """Extended Kalman filter"""
+        b_next = cat.struct_SX(self.b)
+
+        # Compute the mean
+        [mu_bar] = self.F([self.b['m'], self.u])
+
+        # Compute linearization
+        [A, _] = self.Fj_x([self.b['m'], self.u])
+        [C, _] = self.hj_x([mu_bar])
+
+        # Get system and observation noises, as if the state was mu_bar
+        [M] = self.M([self.b['m'], self.u])
+        [N] = self.N([self.b['m']])
+
+        # Predict the covariance
+        S_bar = ca.mul([A, self.b['S'], A.T]) + M
+
+        # Compute the inverse
+        P = ca.mul([C, S_bar, C.T]) + N
+        P_inv = ca.inv(P)
+
+        # Kalman gain
+        K = ca.mul([S_bar, C.T, P_inv])
+
+        # Predict observation
+        [z_bar] = self.h([mu_bar])
+
+        # Update equations
+        b_next['m'] = mu_bar + ca.mul([K, self.z - z_bar])
+        b_next['S'] = ca.mul(ca.DMatrix.eye(self.nx) - ca.mul(K, C), S_bar)
+
+        # (b, u, z) -> b_next
+        op = {'input_scheme': ['b', 'u', 'z'],
+              'output_scheme': ['b_next']}
+        return ca.SXFunction('Extended Kalman filter',
+                             [self.b, self.u, self.z], [b_next], op)
+
+    def _create_EBF(self):
+        """Extended belief dynamics"""
         b_next = cat.struct_SX(self.b)
 
         # Compute the mean

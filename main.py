@@ -18,15 +18,16 @@ __author__ = 'belousov'
 # ============================================================================
 #                              Initialization
 # ============================================================================
-# ----------------------------- Create model ------------------------------- #
 # Initial mean
 m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi/2])
 # Initial covariance
 S0 = ca.DMatrix.eye(m0.size()) * 0.25
+# Hypercovariance
+L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
 dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
-n_rk = 10
+n_rk = 1
 # Reaction time (in units of dt)
 n_delay = 3
 # System noise matrix
@@ -37,7 +38,7 @@ w_cl = 1e1
 # Running cost on controls
 R = 1e-1 * ca.diagcat([1, 1])
 # Create model
-model = Model((m0, S0), dt, n_rk, n_delay, M, (w_cl, R))
+model = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
 
 
 # ============================================================================
@@ -53,7 +54,7 @@ Plotter.plot_trajectory(ax, x_all)
 
 
 # ============================================================================
-#                 Simulate trajectory and observations in 2D
+#                   Simulate trajectory and observations
 # ============================================================================
 # Nominal controls for simulation
 u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, 10))
@@ -141,14 +142,13 @@ for ax in axes:
 for k, _ in enumerate(X_all):
     # Planning
     Plotter.plot_trajectory(axes[1], XP_all[k])
-    plt.waitforbuttonpress()
     fig.canvas.draw()
 
     # Simulation
     Plotter.plot_trajectory(axes[0], X_all[k])
     Plotter.plot_filtered_trajectory(axes[0], B_all[k])
-    plt.waitforbuttonpress()
     fig.canvas.draw()
+    plt.waitforbuttonpress()
 
 
 
