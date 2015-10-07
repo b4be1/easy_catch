@@ -7,12 +7,12 @@ __author__ = 'belousov'
 class Planner:
 
     @classmethod
-    def create_plan(cls, model, n):
+    def create_plan(cls, model):
         # Degrees of freedom for the optimizer
         V = cat.struct_symSX([
             (
-                cat.entry('X', repeat=n+1, struct=model.x),
-                cat.entry('U', repeat=n, struct=model.u)
+                cat.entry('X', repeat=model.n+1, struct=model.x),
+                cat.entry('U', repeat=model.n, struct=model.u)
             )
         ])
 
@@ -36,10 +36,9 @@ class Planner:
 
     @staticmethod
     def _create_objective_function(model, V):
-        n = len(V['U'])
-        [final_cost] = model.cl([V['X', n]])
+        [final_cost] = model.cl([V['X', model.n]])
         running_cost = 0
-        for k in range(n):
+        for k in range(model.n):
             [stage_cost] = model.c([V['X', k], V['U', k]])
             running_cost += stage_cost
         return final_cost + running_cost
@@ -61,9 +60,8 @@ class Planner:
     @staticmethod
     def _create_nonlinear_constraints(model, V):
         """Non-linear constraints for planning"""
-        n = len(V['U'])
         g, lbg, ubg = [], [], []
-        for k in range(n):
+        for k in range(model.n):
             [xk_next] = model.F([V['X', k], V['U', k]])
             g.append(xk_next - V['X', k+1])
             lbg.append(ca.DMatrix.zeros(model.nx))
@@ -72,16 +70,6 @@ class Planner:
         lbg = ca.veccat(lbg)
         ubg = ca.veccat(ubg)
         return [g, lbg, ubg]
-
-    @staticmethod
-    def estimate_planning_horizon_length(model):
-        # 1. Unpack initial z-coordinate and z-velocity
-        z_b0 = model.m0['z_b']
-        vz_b0 = model.m0['vz_b']
-        # 2. Use kinematic equation of the ball to find time
-        T = (vz_b0 + ca.sqrt(vz_b0 ** 2 + 2 * model.g * z_b0)) / model.g
-        # 3. Divide time by time-step duration
-        return int(float(T) // model.dt)
 
 
 

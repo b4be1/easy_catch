@@ -14,9 +14,12 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, (m0, S0), dt, n_delay, M, (w_cl, R)):
+    def __init__(self, (m0, S0), dt, n_rk, n_delay, M, (w_cl, R)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
+
+        # Number of Runge-Kutta integration steps
+        self.n_rk = n_rk
 
         # MPC reaction delay (in units of dt)
         self.n_delay = n_delay
@@ -64,6 +67,9 @@ class Model:
         self.cl = self._create_final_cost_function(w_cl)
         self.c = self._create_running_cost_function(R)
 
+        # Number of simulation steps till the ball hits the ground
+        self.n = self._estimate_simulation_duration()
+
     # ========================================================================
     #                           Initial condition
     # ========================================================================
@@ -73,6 +79,7 @@ class Model:
         self.S0 = self.x.squared(ca.densify(S0))
         self.b0['m'] = self.m0
         self.b0['S'] = self.S0
+        self.n = self._estimate_simulation_duration()
 
     def init_x0(self):
         self.x0 = self._draw_initial_state(self.m0, self.S0)
@@ -93,6 +100,15 @@ class Model:
         S0_array = S0.cast()
         return self.x(normal(m0_array, S0_array))
 
+    def _estimate_simulation_duration(self):
+        # 1. Unpack mean z-coordinate and z-velocity
+        z_b0 = self.m0['z_b']
+        vz_b0 = self.m0['vz_b']
+        # 2. Use kinematic equation of the ball to find time
+        T = (vz_b0 + ca.sqrt(vz_b0 ** 2 + 2 * self.g * z_b0)) / self.g
+        # 3. Divide time by time-step duration
+        return int(float(T) // self.dt)
+
     # ========================================================================
     #                                Dynamics
     # ========================================================================
@@ -101,7 +117,7 @@ class Model:
         f = self._create_continuous_dynamics()
 
         # Discrete dynamics x_next = F(x, u)
-        F = self._discretize(f)
+        F = self._discretize_dynamics(f)
 
         # Linearize discrete dynamics dx_next/dx
         Fj_x = F.jacobian('x')
@@ -145,19 +161,15 @@ class Model:
         return ca.SXFunction('Continuous dynamics',
                              [self.x, self.u], [rhs], op)
 
-    def _discretize(self, f):
-        """Continuous dynamics is discretized with time step dt
-
-        :param f: f: [x, u] -> x_dot
-        :return: discrete_dynamics: F: [x, u] -> x_next
-        """
-        [x_dot] = f([self.x, self.u])
-        x_next = self.x + self.dt * x_dot
-
+    def _discretize_dynamics(self, f):
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['x_next']}
-        return ca.SXFunction('Discrete dynamics',
-                             [self.x, self.u], [x_next], op)
+        # [x_dot] = f([self.x, self.u])
+        # x_next = self.x + self.dt * x_dot
+        # return ca.SXFunction('Discrete dynamics',
+        #                      [self.x, self.u], [x_next], op)
+        return ca.SXFunction('Discrete dynamics', [self.x, self.u],
+                ca.simpleRK(f, self.n_rk)([self.x, self.u, self.dt]), op)
 
     def _create_observation_function(self):
         # Define the observation
@@ -290,3 +302,9 @@ class Model:
     def _set_control_limits(lbx, ubx):
         # v >= 0
         lbx['U', :, 'v'] = 0
+        # v <= 5
+        ubx['U', :, 'v'] = 6
+        # w >= -2 * pi
+        lbx['U', :, 'w'] = -2 * ca.pi
+        # w <= 2 * pi
+        ubx['U', :, 'w'] = 2 * ca.pi
