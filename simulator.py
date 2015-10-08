@@ -7,6 +7,9 @@ __author__ = 'belousov'
 
 class Simulator:
 
+    # ========================================================================
+    #                           True noisy trajectory
+    # ========================================================================
     @staticmethod
     def simulate_trajectory(model, u_all):
         xk = model.x0.cat
@@ -18,6 +21,9 @@ class Simulator:
         x_all = model.x.repeated(ca.horzcat(x_all))
         return x_all
 
+    # ========================================================================
+    #                              Observations
+    # ========================================================================
     @staticmethod
     def simulate_observed_trajectory(model, x_all):
         z_all = []
@@ -27,6 +33,9 @@ class Simulator:
         z_all = model.z.repeated(ca.horzcat(z_all))
         return z_all
 
+    # ========================================================================
+    #                         Filtered observations
+    # ========================================================================
     @staticmethod
     def filter_observed_trajectory(model, z_all, u_all):
         n = len(u_all[:])
@@ -39,9 +48,27 @@ class Simulator:
         b_all = model.b.repeated(ca.horzcat(b_all))
         return b_all
 
+    # ========================================================================
+    #                       Extended belief trajectory
+    # ========================================================================
     @staticmethod
-    def simulate_belief_trajectory(model):
-        pass
+    def simulate_eb_trajectory(model, u_all):
+        ebk = model.eb0
+        eb_all = [ebk]
+        for uk in u_all[:]:
+            [ebk_next] = model.EBF([ebk, uk])
+            eb_all.append(ebk_next)
+            ebk = ebk_next
+        eb_all = model.eb.repeated(ca.horzcat(eb_all))
+        return eb_all
+
+
+
+
+
+
+
+
 
 
 

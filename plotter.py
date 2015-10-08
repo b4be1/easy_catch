@@ -11,28 +11,7 @@ class Plotter:
     # ========================================================================
     #                                  2D
     # ========================================================================
-    # ---------------------------- Trajectory ------------------------------ #
-    @classmethod
-    def plot_trajectory(cls, ax, x_all):
-        cls._plot_ball_trajectory('Ball trajectory', ax, x_all)
-        cls._plot_catcher_trajectory('Catcher trajectory', ax, x_all)
-        cls._plot_arrows('Catcher gaze', ax, x_all)
-        ax.grid(True)
-
-    @staticmethod
-    def _plot_ball_trajectory(name, ax, x_all):
-        x = x_all[:, 'x_b']
-        y = x_all[:, 'y_b']
-        return ax.plot(x, y, label=name, lw=0.8, alpha=0.8, color='g',
-                       marker='o', markersize=4, fillstyle='none')
-
-    @staticmethod
-    def _plot_catcher_trajectory(name, ax, x_all):
-        x = x_all[:, 'x_c']
-        y = x_all[:, 'y_c']
-        return ax.plot(x, y, label=name, lw=0.8, alpha=0.8, color='g',
-                       marker='o', markersize=4, fillstyle='none')
-
+    # -------------------------- Helper methods ---------------------------- #
     @staticmethod
     def _plot_arrows(name, ax, x_all):
         x = x_all[:, 'x_c']
@@ -44,6 +23,36 @@ class Plotter:
                   units='xy', angles='xy', scale=2, headwidth=4,
                   color='r', lw=0.1)
         return [Patch(color='red', label=name)]
+
+    @staticmethod
+    def _create_ellipse(mu, cov):
+        if len(mu) != 2 and cov.shape != (2, 2):
+            raise TypeError('Arguments should be 2D')
+
+        s = 6 # 6 -> 95%; 9.21 -> 99%
+        w, v = np.linalg.eigh(cov)
+        alpha = np.rad2deg(np.arctan2(v[1, 1], v[1, 0]))
+        width = 2 * np.sqrt(s * w[1])
+        height = 2 * np.sqrt(s * w[0])
+
+        # Create the ellipse
+        return Ellipse(mu, width, height, alpha,
+                       fill=True, color='y', alpha=0.1)
+
+    # ---------------------------- Trajectory ------------------------------ #
+    @classmethod
+    def plot_trajectory(cls, ax, x_all):
+        cls._plot_trajectory('Ball trajectory', ax, x_all, ('x_b', 'y_b'))
+        cls._plot_trajectory('Catcher trajectory', ax, x_all, ('x_c', 'y_c'))
+        cls._plot_arrows('Catcher gaze', ax, x_all)
+        ax.grid(True)
+
+    @staticmethod
+    def _plot_trajectory(name, ax, x_all, (xl, yl)):
+        x = x_all[:, xl]
+        y = x_all[:, yl]
+        return ax.plot(x, y, label=name, lw=0.8, alpha=0.8, color='g',
+                       marker='o', markersize=4, fillstyle='none')
 
     # --------------------------- Observations ----------------------------- #
     @classmethod
@@ -78,20 +87,67 @@ class Plotter:
             ax.add_patch(e)
         return [Patch(color='cyan', alpha=0.1, label=name)]
 
+    # ------------------------ Planned trajectory -------------------------- #
+    @classmethod
+    def plot_plan(cls, ax, eb_all):
+        """Complete plan"""
+        cls._plot_plan(ax, eb_all, ('x_b', 'y_b'))
+        cls._plot_plan(ax, eb_all, ('x_c', 'y_c'))
+
+    @classmethod
+    def _plot_plan(cls, ax, eb_all, (xl, yl)):
+        """Plan for one object (ball or catcher)"""
+        [plan_m] = cls._plot_plan_m('Plan', ax,
+                                    eb_all[:, 'm', xl],
+                                    eb_all[:, 'm', yl])
+        [plan_S] = cls._plot_plan_S('Posterior', ax,
+                                    eb_all[:, 'm', [xl, yl]],
+                                    eb_all[:, 'S', [xl, yl], [xl, yl]])
+        [plan_L] = cls._plot_plan_L('Prior', ax,
+                                    eb_all[:, 'm', [xl, yl]],
+                                    eb_all[:, 'L', [xl, yl], [xl, yl]])
+        [plan_SL] = cls._plot_plan_SL('Prior + posterior', ax,
+                                      eb_all[:, 'm', [xl, yl]],
+                                      eb_all[:, 'S', [xl, yl], [xl, yl]],
+                                      eb_all[:, 'L', [xl, yl], [xl, yl]])
+        return [plan_m, plan_S, plan_L, plan_SL]
+
     @staticmethod
-    def _create_ellipse(mu, cov):
-        if len(mu) != 2 and cov.shape != (2, 2):
-            raise TypeError('Arguments should be 2D')
+    def _plot_plan_m(name, ax, x, y):
+        """Planned trajectory"""
+        return ax.plot(x, y, label=name, lw=0.7,
+                       alpha=0.9, marker='.', color='b')
 
-        s = 6 # 6 -> 95%; 9.21 -> 99%
-        w, v = np.linalg.eigh(cov)
-        alpha = np.rad2deg(np.arctan2(v[1, 1], v[1, 0]))
-        width = 2 * np.sqrt(s * w[1])
-        height = 2 * np.sqrt(s * w[0])
+    @classmethod
+    def _plot_plan_S(cls, name, ax, mus, covs):
+        """Planned posterior uncertainty"""
+        for k in range(len(mus)):
+            e = cls._create_ellipse(mus[k], covs[k])
+            e.set_fill(False)
+            e.set_color('r')
+            e.set_alpha(0.4)
+            ax.add_patch(e)
+        return [Patch(color='red', alpha=0.4, label=name)]
 
-        # Create the ellipse
-        return Ellipse(mu, width, height, alpha,
-                       fill=True, color='y', alpha=0.1)
+    @classmethod
+    def _plot_plan_L(cls, name, ax, mus, covs):
+        """Planned prior uncertainty"""
+        for k in range(len(mus)):
+            e = cls._create_ellipse(mus[k], covs[k])
+            ax.add_patch(e)
+        return [Patch(color='yellow', alpha=0.1, label=name)]
+
+    @classmethod
+    def _plot_plan_SL(cls, name, ax, mus, covs, lcovs):
+        """Planned prior + posterior uncertainty"""
+        for i in range(len(mus)):
+            e = cls._create_ellipse(mus[i], covs[i]+lcovs[i])
+            e.set_fill(False)
+            e.set_color('g')
+            e.set_alpha(0.1)
+            ax.add_patch(e)
+        return [Patch(color='green', alpha=0.1, label=name)]
+
 
     # ========================================================================
     #                               3D

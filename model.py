@@ -40,7 +40,7 @@ class Model:
             cat.entry('S', shapestruct=(self.x, self.x))
         ])
 
-        # Extended belief eb = (mu, Sigma, L) for plotting
+        # Extended belief eb = (mu, Sigma, L) for MPC and plotting
         self.eb = cat.struct_symSX([
             cat.entry('m', struct=self.x),
             cat.entry('S', shapestruct=(self.x, self.x)),
@@ -88,6 +88,8 @@ class Model:
         self.S0 = self.x.squared(ca.densify(S0))
         self.b0['m'] = self.m0
         self.b0['S'] = self.S0
+        self.eb0['m'] = self.m0
+        self.eb0['S'] = self.S0
         self.n = self._estimate_simulation_duration()
 
     def init_x0(self):
@@ -296,21 +298,21 @@ class Model:
 
     def _create_EBF(self):
         """Extended belief dynamics"""
-        b_next = cat.struct_SX(self.b)
+        eb_next = cat.struct_SX(self.eb)
 
         # Compute the mean
-        [mu_bar] = self.F([self.b['m'], self.u])
+        [mu_bar] = self.F([self.eb['m'], self.u])
 
         # Compute linearization
-        [A, _] = self.Fj_x([self.b['m'], self.u])
+        [A, _] = self.Fj_x([self.eb['m'], self.u])
         [C, _] = self.hj_x([mu_bar])
 
         # Get system and observation noises, as if the state was mu_bar
-        [M] = self.M([self.b['m'], self.u])
-        [N] = self.N([self.b['m']])
+        [M] = self.M([self.eb['m'], self.u])
+        [N] = self.N([self.eb['m']])
 
         # Predict the covariance
-        S_bar = ca.mul([A, self.b['S'], A.T]) + M
+        S_bar = ca.mul([A, self.eb['S'], A.T]) + M
 
         # Compute the inverse
         P = ca.mul([C, S_bar, C.T]) + N
@@ -319,18 +321,16 @@ class Model:
         # Kalman gain
         K = ca.mul([S_bar, C.T, P_inv])
 
-        # Predict observation
-        [z_bar] = self.h([mu_bar])
-
         # Update equations
-        b_next['m'] = mu_bar + ca.mul([K, self.z - z_bar])
-        b_next['S'] = ca.mul(ca.DMatrix.eye(self.nx) - ca.mul(K, C), S_bar)
+        eb_next['m'] = mu_bar
+        eb_next['S'] = ca.mul(ca.DMatrix.eye(self.nx) - ca.mul(K, C), S_bar)
+        eb_next['L'] = ca.mul([A, self.eb['L'], A.T]) + ca.mul([K, C, S_bar])
 
         # (b, u, z) -> b_next
         op = {'input_scheme': ['b', 'u', 'z'],
               'output_scheme': ['b_next']}
         return ca.SXFunction('Extended Kalman filter',
-                             [self.b, self.u, self.z], [b_next], op)
+                             [self.eb, self.u], [eb_next], op)
 
     # ========================================================================
     #                           Cost functions

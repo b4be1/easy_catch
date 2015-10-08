@@ -21,7 +21,7 @@ __author__ = 'belousov'
 # Initial mean
 m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi/2])
 # Initial covariance
-S0 = ca.DMatrix.eye(m0.size()) * 0.25
+S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
@@ -44,6 +44,7 @@ model = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
 # ============================================================================
 #                             Plan trajectory
 # ============================================================================
+# Find optimal controls
 plan = Planner.create_plan(model)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
@@ -52,6 +53,12 @@ u_all = plan.prefix['U']
 _, ax = plt.subplots(figsize=(6, 6))
 Plotter.plot_trajectory(ax, x_all)
 
+# Simulate ebelief propagation
+eb_all = Simulator.simulate_eb_trajectory(model, u_all)
+
+# Plot 2D
+_, ax = plt.subplots(figsize=(12, 12))
+Plotter.plot_plan(ax, eb_all)
 
 # ============================================================================
 #                   Simulate trajectory and observations
