@@ -101,8 +101,8 @@ model.init_x0()
 # Prepare a place to store simulation results
 X_all = []
 U_all = []
-XP_all = []
 B_all = []
+EB_all = []
 
 # Simulator: simulate first n_delay time-steps with static controls
 # u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
@@ -114,10 +114,12 @@ B_all = []
 
 # Iterate until the ball hits the ground
 while model.n != 0:
-    # Planner: plan for n time steps
+    # Planner: plan for model.n time steps
     plan = Planner.create_plan(model)
-    xp_all = plan.prefix['X']
     u_all = plan.prefix['U']
+
+    # Simulator: simulate ebelief plan for plotting
+    eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
     # Simulator: execute the first action
     x_all = Simulator.simulate_trajectory(model, [u_all[0]])
@@ -127,8 +129,8 @@ while model.n != 0:
     # Save simulation results
     X_all.append(x_all)
     U_all.append(u_all)
-    XP_all.append(xp_all)
     B_all.append(b_all)
+    EB_all.append(eb_all)
 
     # Advance time
     model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
@@ -138,7 +140,7 @@ fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 
 # Appearance
 axes[0].set_title("Model predictive control, simulation")
-axes[1].set_title("Model predictive control, plans")
+axes[1].set_title("Model predictive control, planning")
 for ax in axes:
     ax.set_xlim(0, 12)
     ax.set_ylim(0, 12)
@@ -147,15 +149,25 @@ for ax in axes:
 
 # Plot
 for k, _ in enumerate(X_all):
+    # Clear old plan
+    axes[1].clear()
+    axes[1].set_title("Model predictive control, planning")
+    ax.set_xlim(0, 12)
+    ax.set_ylim(0, 12)
+    axes[1].grid(True)
+    axes[1].set_aspect('equal')
+
     # Planning
-    Plotter.plot_trajectory(axes[1], XP_all[k])
+    plt.waitforbuttonpress()
+    Plotter.plot_plan(axes[1], EB_all[k])
     fig.canvas.draw()
 
     # Simulation
+    plt.waitforbuttonpress()
     Plotter.plot_trajectory(axes[0], X_all[k])
     Plotter.plot_filtered_trajectory(axes[0], B_all[k])
     fig.canvas.draw()
-    plt.waitforbuttonpress()
+
 
 
 

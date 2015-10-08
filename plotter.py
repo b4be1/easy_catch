@@ -119,13 +119,13 @@ class Plotter:
 
     @staticmethod
     def _plot_plan_m(name, ax, x, y):
-        """Planned trajectory"""
+        """Planned mean"""
         return ax.plot(x, y, label=name, lw=0.7,
                        alpha=0.9, marker='.', color='b')
 
     @classmethod
     def _plot_plan_S(cls, name, ax, mus, covs):
-        """Planned posterior uncertainty"""
+        """Planned posterior"""
         for k in range(len(mus)):
             e = cls._create_ellipse(mus[k], covs[k])
             e.set_fill(False)
@@ -136,7 +136,7 @@ class Plotter:
 
     @classmethod
     def _plot_plan_L(cls, name, ax, mus, covs):
-        """Planned prior uncertainty"""
+        """Planned prior"""
         for k in range(len(mus)):
             e = cls._create_ellipse(mus[k], covs[k])
             ax.add_patch(e)
@@ -144,7 +144,7 @@ class Plotter:
 
     @classmethod
     def _plot_plan_SL(cls, name, ax, mus, covs, lcovs):
-        """Planned prior + posterior uncertainty"""
+        """Planned prior + posterior"""
         for i in range(len(mus)):
             e = cls._create_ellipse(mus[i], covs[i]+lcovs[i])
             e.set_fill(False)
