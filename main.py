@@ -37,6 +37,7 @@ M[-3:, -3:] = ca.DMatrix.eye(3) * 1e-5  # catcher's dynamics is less noisy
 w_cl = 1e1
 # Running cost on controls
 R = 1e-1 * ca.diagcat([1, 1])
+
 # Create model
 model = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
 
@@ -94,32 +95,43 @@ plt.show()
 #                         Model predictive control
 # ============================================================================
 # ----------------------------- Simulation --------------------------------- #
-# Reset the model in case it was used before
-model.set_initial_state(m0, m0, S0)
-model.init_x0()
+# Create models for simulation and planning
+model = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
+model_p = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
 
-# Prepare a place to store simulation results
-X_all = []
-U_all = []
-B_all = []
-EB_all = []
+# Simulator: simulate first n_delay time-steps with zero controls
+u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
+x_all = Simulator.simulate_trajectory(model, u_all)
+z_all = Simulator.simulate_observed_trajectory(model, x_all)
+b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
-# Simulator: simulate first n_delay time-steps with static controls
-# u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
-# u_all[:, 'phi'] = ca.pi/2
-# x_all = Simulator.simulate_trajectory(model, x0, u_all)
-# z_all = Simulator.simulate_observed_trajectory(model, x_all, u_all)
-# b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
+# Store simulation results
+X_all = x_all.cast()
+U_all = u_all.cast()
+B_all = b_all.cast()
 
+# Advance time
+model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
 
 # Iterate until the ball hits the ground
+EB_all = []
+k = 0  # pointer to current catcher observation (= now - n_delay)
 while model.n != 0:
-    # Planner: plan for model.n time steps
-    plan = Planner.create_plan(model)
-    u_all = plan.prefix['U']
+    # Reaction delay compensation
+    eb_all_head = Simulator.simulate_eb_trajectory(model_p,
+                                                   u_all[:model_p.n_delay])
+    model_p.set_initial_state(eb_all_head[-1, 'm'],
+                              eb_all_head[-1, 'm'],
+                              eb_all_head[-1, 'L'])
+    if model_p.n == 0:
+        break
 
-    # Simulator: simulate ebelief plan for plotting
-    eb_all = Simulator.simulate_eb_trajectory(model, u_all)
+    # Planner: plan for model_p.n time steps
+    plan = Planner.create_plan(model_p)
+    u_all = model_p.u.repeated(ca.horzcat(plan['U']))
+
+    # Simulator: simulate ebelief trajectory for plotting
+    eb_all_tail = Simulator.simulate_eb_trajectory(model_p, u_all)
 
     # Simulator: execute the first action
     x_all = Simulator.simulate_trajectory(model, [u_all[0]])
@@ -127,13 +139,17 @@ while model.n != 0:
     b_all = Simulator.filter_observed_trajectory(model, z_all, [u_all[0]])
 
     # Save simulation results
-    X_all.append(x_all)
-    U_all.append(u_all)
-    B_all.append(b_all)
-    EB_all.append(eb_all)
+    X_all.appendColumns(x_all.cast()[:, 1:])  # 0'th state is already included
+    U_all.appendColumns(u_all.cast()[:, 1:])
+    B_all.appendColumns(b_all.cast()[:, 1:])
+    EB_all.append([eb_all_head, eb_all_tail])
 
     # Advance time
     model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
+    model_p.set_initial_state(model_p.b(B_all[:, k+1])['m'],
+                              model_p.b(B_all[:, k+1])['m'],
+                              model_p.b(B_all[:, k+1])['S'])
+    k += 1
 
 # ------------------------------- Plotting --------------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
@@ -147,8 +163,19 @@ for ax in axes:
     ax.grid(True)
     ax.set_aspect('equal')
 
-# Plot
-for k, _ in enumerate(X_all):
+# Plot the first piece
+head = 0
+x_piece = model.x.repeated(X_all[:, head:head+n_delay+1])
+b_piece = model.b.repeated(B_all[:, head:head+n_delay+1])
+Plotter.plot_trajectory(axes[0], x_piece)
+Plotter.plot_filtered_trajectory(axes[0], b_piece)
+fig.canvas.draw()
+
+# Advance time
+head += n_delay
+
+# Plot the rest
+for k, _ in enumerate(EB_all):
     # Clear old plan
     axes[1].clear()
     axes[1].set_title("Model predictive control, planning")
@@ -157,17 +184,24 @@ for k, _ in enumerate(X_all):
     axes[1].grid(True)
     axes[1].set_aspect('equal')
 
-    # Planning
+    # Show new plan
     plt.waitforbuttonpress()
-    Plotter.plot_plan(axes[1], EB_all[k])
+    Plotter.plot_plan(axes[1], EB_all[k][0])
+    fig.canvas.draw()
+    plt.waitforbuttonpress()
+    Plotter.plot_plan(axes[1], EB_all[k][1])
     fig.canvas.draw()
 
-    # Simulation
+    # Simulate one step
+    x_piece = model.x.repeated(X_all[:, head:head+n_delay+1])
+    b_piece = model.b.repeated(B_all[:, head:head+n_delay+1])
     plt.waitforbuttonpress()
-    Plotter.plot_trajectory(axes[0], X_all[k])
-    Plotter.plot_filtered_trajectory(axes[0], B_all[k])
+    Plotter.plot_trajectory(axes[0], x_piece)
+    Plotter.plot_filtered_trajectory(axes[0], b_piece)
     fig.canvas.draw()
 
+    # Advance time
+    head += n_delay
 
 
 
