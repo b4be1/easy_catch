@@ -13,15 +13,13 @@ class Plotter:
     # ========================================================================
     # -------------------------- Helper methods ---------------------------- #
     @staticmethod
-    def _plot_arrows(name, ax, x_all):
-        x = x_all[:, 'x_c']
-        y = x_all[:, 'y_c']
-        phi = x_all[:, 'phi']
+    def _plot_arrows(name, ax, x, y, phi):
         x_vec = ca.cos(phi)
         y_vec = ca.sin(phi)
         ax.quiver(x, y, x_vec, y_vec,
-                  units='xy', angles='xy', scale=2, headwidth=4,
-                  color='r', lw=0.1)
+                  units='xy', angles='xy', scale=1.5, width=0.08,
+                  headwidth=4, headlength=6, headaxislength=5,
+                  color='r', alpha=0.8, lw=0.1)
         return [Patch(color='red', label=name)]
 
     @staticmethod
@@ -44,7 +42,8 @@ class Plotter:
     def plot_trajectory(cls, ax, x_all):
         cls._plot_trajectory('Ball trajectory', ax, x_all, ('x_b', 'y_b'))
         cls._plot_trajectory('Catcher trajectory', ax, x_all, ('x_c', 'y_c'))
-        cls._plot_arrows('Catcher gaze', ax, x_all)
+        cls._plot_arrows('Catcher gaze', ax,
+                         x_all[:, 'x_c'], x_all[:, 'y_c'], x_all[:, 'phi'])
         ax.grid(True)
 
     @staticmethod
@@ -93,6 +92,12 @@ class Plotter:
         """Complete plan"""
         cls._plot_plan(ax, eb_all, ('x_b', 'y_b'))
         cls._plot_plan(ax, eb_all, ('x_c', 'y_c'))
+        cls._plot_arrows('Catcher gaze', ax,
+                         eb_all[:, 'm', 'x_c'],
+                         eb_all[:, 'm', 'y_c'],
+                         eb_all[:, 'm', 'phi'])
+        # Appearance
+        ax.grid(True)
 
     @classmethod
     def _plot_plan(cls, ax, eb_all, (xl, yl)):
