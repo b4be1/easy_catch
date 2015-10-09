@@ -14,7 +14,8 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, w_S, R)):
+    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay,
+                 M, (w_cl, R, w_Sl, w_S), (v_max, w_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -76,8 +77,13 @@ class Model:
         self.cl = self._create_final_cost_function(w_cl)
         self.c = self._create_running_cost_function(R)
 
-        # Cost of final uncertainty
-        self.w_S = w_S
+        # Cost functions: final and running uncertainty
+        self.cSl = self._create_final_uncertainty_cost(w_Sl)
+        self.cS = self._create_uncertainty_cost(w_S)
+
+        # Control limits
+        self.v_max = v_max
+        self.w_max = w_max
 
         # Number of simulation steps till the ball hits the ground
         self.n = self._estimate_simulation_duration()
@@ -385,25 +391,52 @@ class Model:
         final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc)
         op = {'input_scheme': ['x'],
               'output_scheme': ['cl']}
-        return ca.SXFunction('Final cost',
-                             [self.x], [w_cl * final_cost], op)
+        return ca.SXFunction('Final cost', [self.x],
+                             [w_cl * final_cost], op)
 
     def _create_running_cost_function(self, R):
-        cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])
+        running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
-        return ca.SXFunction('Running cost', [self.x, self.u], [cost], op)
+        return ca.SXFunction('Running cost', [self.x, self.u],
+                             [running_cost], op)
+
+    def _create_final_uncertainty_cost(self, w_Sl):
+        final_uncertainty_cost = 0.5 * w_Sl * ca.trace(self.b['S'])
+        op = {'input_scheme': ['b'],
+              'output_scheme': ['cSl']}
+        return ca.SXFunction('Final uncertainty cost', [self.b],
+                             [final_uncertainty_cost], op)
+
+    def _create_uncertainty_cost(self, w_S):
+        running_uncertainty_cost = 0.5 * w_S * ca.trace(self.b['S'])
+        op = {'input_scheme': ['b'],
+              'output_scheme': ['cS']}
+        return ca.SXFunction('Running uncertainty cost', [self.b],
+                             [running_uncertainty_cost], op)
 
     # ========================================================================
     #                      Function called by Planner
     # ========================================================================
-    @staticmethod
-    def _set_control_limits(lbx, ubx):
+    def _set_control_limits(self, lbx, ubx):
         # v >= 0
         lbx['U', :, 'v'] = 0
-        # v <= 5
-        ubx['U', :, 'v'] = 6
-        # w >= -2 * pi
-        lbx['U', :, 'w'] = -2 * ca.pi
-        # w <= 2 * pi
-        ubx['U', :, 'w'] = 2 * ca.pi
+        # v <= v_max
+        ubx['U', :, 'v'] = self.v_max
+        # w >= -w_max
+        lbx['U', :, 'w'] = -self.w_max
+        # w <= w_max
+        ubx['U', :, 'w'] = self.w_max
+
+
+
+
+
+
+
+
+
+
+
+
+

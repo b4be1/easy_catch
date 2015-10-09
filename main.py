@@ -25,7 +25,7 @@ S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.1
+dt = 0.2
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
@@ -33,17 +33,22 @@ n_delay = 3
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-3:, -3:] = ca.DMatrix.eye(3) * 1e-5  # catcher's dynamics is less noisy
-# Final cost of coordinate discrepancy
+# Final cost of coordinate discrepancy: w_cl * dr.T * dr
 w_cl = 1e1
-# Final cost of uncertainty
-w_S = 1e1
-# Running cost on controls
+# Running cost on controls: u.T * R * u
 R = 1e-1 * ca.diagcat([1, 1])
-
+# Final cost of uncertainty: w_Sl * tr(S)
+w_Sl = 1e1
+# Running cost of uncertainty: w_S * tr(S)
+w_S = 1e-1
+# Control limits
+v_max = 8
+w_max = 2 * ca.pi
 
 # Model creation wrapper
 def new_model():
-    return Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, w_S, R))
+    return Model((m0, S0, L0), dt, n_rk, n_delay,
+                 M, (w_cl, R, w_Sl, w_S), (v_max, w_max))
 
 # Create model
 model = new_model()
@@ -66,7 +71,7 @@ Plotter.plot_plan(ax, eb_all)
 
 
 # ============================================================================
-#                             Belief planning
+#                           Belief space planning
 # ============================================================================
 # Find optimal controls
 plan = Planner.create_belief_plan(model, plan)
@@ -147,7 +152,8 @@ while model.n != 0:
 
     # Planner: plan for model_p.n time steps
     plan = Planner.create_plan(model_p)
-    u_all = model_p.u.repeated(ca.horzcat(plan['U']))
+    belief_plan = Planner.create_belief_plan(model_p, plan)
+    u_all = model_p.u.repeated(ca.horzcat(belief_plan['U']))
 
     # Simulator: simulate ebelief trajectory for plotting
     eb_all_tail = Simulator.simulate_eb_trajectory(model_p, u_all)

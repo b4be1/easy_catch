@@ -50,6 +50,15 @@ class Planner:
         ubg = ca.veccat(ubg)
         return [g, lbg, ubg]
 
+    @staticmethod
+    def _create_objective_function(model, V):
+        [final_cost] = model.cl([V['X', model.n]])
+        running_cost = 0
+        for k in range(model.n):
+            [stage_cost] = model.c([V['X', k], V['U', k]])
+            running_cost += stage_cost
+        return final_cost + running_cost
+
     # ========================================================================
     #                          Belief space planning
     # ========================================================================
@@ -67,12 +76,10 @@ class Planner:
         [lbx, ubx] = cls._create_box_constraints(model, V)
 
         # Non-linear constraints
-        [g, lbg, ubg, final_belief] =\
-            cls._create_belief_nonlinear_constraints(model, V)
+        [g, lbg, ubg] = cls._create_belief_nonlinear_constraints(model, V)
 
         # Objective function
-        J = cls._create_objective_function(model, V)
-        J += model.w_S * ca.trace(final_belief['S'])
+        J = cls._create_belief_objective_function(model, V)
 
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
@@ -105,7 +112,35 @@ class Planner:
         g = ca.veccat(g)
         lbg = ca.veccat(lbg)
         ubg = ca.veccat(ubg)
-        return [g, lbg, ubg, bk]
+        return [g, lbg, ubg]
+
+    @staticmethod
+    def _create_belief_objective_function(model, V):
+        # Simple cost
+        running_cost = 0
+        for k in range(model.n):
+            [stage_cost] = model.c([V['X', k], V['U', k]])
+            running_cost += stage_cost
+        [final_cost] = model.cl([V['X', model.n]])
+
+        # Uncertainty cost
+        running_uncertainty_cost = 0
+        bk = cat.struct_SX(model.b)
+        bk['S'] = model.b0['S']
+        for k in range(model.n):
+            # Belief propagation
+            bk['m'] = V['X', k]
+            [bk_next] = model.BF([bk, V['U', k]])
+            bk_next = model.b(bk_next)
+            # Accumulate cost
+            [stage_uncertainty_cost] = model.cS([bk_next])
+            running_uncertainty_cost += stage_uncertainty_cost
+            # Advance time
+            bk = bk_next
+        [final_uncertainty_cost] = model.cSl([bk_next])
+
+        return running_cost + final_cost +\
+               running_uncertainty_cost + final_uncertainty_cost
 
     # ========================================================================
     #                            Common functions
@@ -122,15 +157,6 @@ class Planner:
         model._set_control_limits(lbx, ubx)
 
         return [lbx, ubx]
-
-    @staticmethod
-    def _create_objective_function(model, V):
-        [final_cost] = model.cl([V['X', model.n]])
-        running_cost = 0
-        for k in range(model.n):
-            [stage_cost] = model.c([V['X', k], V['U', k]])
-            running_cost += stage_cost
-        return final_cost + running_cost
 
 
 
