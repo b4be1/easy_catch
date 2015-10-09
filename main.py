@@ -119,10 +119,10 @@ k = 0  # pointer to current catcher observation (= now - n_delay)
 while model.n != 0:
     # Reaction delay compensation
     eb_all_head = Simulator.simulate_eb_trajectory(model_p,
-                                                   u_all[:model_p.n_delay])
+                            model_p.u.repeated(U_all[:, k:k+model_p.n_delay]))
     model_p.set_initial_state(eb_all_head[-1, 'm'],
                               eb_all_head[-1, 'm'],
-                              eb_all_head[-1, 'L'])
+                              eb_all_head[-1, 'L'] + eb_all_head[-1, 'S'])
     if model_p.n == 0:
         break
 
@@ -140,8 +140,8 @@ while model.n != 0:
 
     # Save simulation results
     X_all.appendColumns(x_all.cast()[:, 1:])  # 0'th state is already included
-    U_all.appendColumns(u_all.cast()[:, 1:])
-    B_all.appendColumns(b_all.cast()[:, 1:])
+    U_all.appendColumns(u_all.cast()[:, 0])   # save only the first control
+    B_all.appendColumns(b_all.cast()[:, 1:])  # 0'th belief is also included
     EB_all.append([eb_all_head, eb_all_tail])
 
     # Advance time
@@ -158,8 +158,8 @@ fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 axes[0].set_title("Model predictive control, simulation")
 axes[1].set_title("Model predictive control, planning")
 for ax in axes:
-    ax.set_xlim(0, 12)
-    ax.set_ylim(0, 12)
+    ax.set_xlim(-2, 12)
+    ax.set_ylim(-2, 12)
     ax.grid(True)
     ax.set_aspect('equal')
 
@@ -179,8 +179,8 @@ for k, _ in enumerate(EB_all):
     # Clear old plan
     axes[1].clear()
     axes[1].set_title("Model predictive control, planning")
-    ax.set_xlim(0, 12)
-    ax.set_ylim(0, 12)
+    ax.set_xlim(-2, 12)
+    ax.set_ylim(-2, 12)
     axes[1].grid(True)
     axes[1].set_aspect('equal')
 
@@ -193,15 +193,15 @@ for k, _ in enumerate(EB_all):
     fig.canvas.draw()
 
     # Simulate one step
-    x_piece = model.x.repeated(X_all[:, head:head+n_delay+1])
-    b_piece = model.b.repeated(B_all[:, head:head+n_delay+1])
+    x_piece = model.x.repeated(X_all[:, head:head+2])
+    b_piece = model.b.repeated(B_all[:, head:head+2])
     plt.waitforbuttonpress()
     Plotter.plot_trajectory(axes[0], x_piece)
     Plotter.plot_filtered_trajectory(axes[0], b_piece)
     fig.canvas.draw()
 
     # Advance time
-    head += n_delay
+    head += 1
 
 
 
