@@ -14,7 +14,7 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R)):
+    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, w_S, R)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -70,11 +70,14 @@ class Model:
         [self.Fn, self.hn] = self._noisy_dynamics_init()
 
         # Kalman filters
-        [self.EKF, self.EBF] = self._filters_init()
+        [self.EKF, self.BF, self.EBF] = self._filters_init()
 
         # Cost functions: final and running
         self.cl = self._create_final_cost_function(w_cl)
         self.c = self._create_running_cost_function(R)
+
+        # Cost of final uncertainty
+        self.w_S = w_S
 
         # Number of simulation steps till the ball hits the ground
         self.n = self._estimate_simulation_duration()
@@ -253,10 +256,13 @@ class Model:
         # Extended Kalman Filter b_next = EKF(b, u, z)
         EKF = self._create_EKF()
 
+        # Belief dynamics
+        BF = self._create_BF()
+
         # Extended belief dynamics
         EBF = self._create_EBF()
 
-        return [EKF, EBF]
+        return [EKF, BF, EBF]
 
     def _create_EKF(self):
         """Extended Kalman filter"""
@@ -296,6 +302,41 @@ class Model:
         return ca.SXFunction('Extended Kalman filter',
                              [self.b, self.u, self.z], [b_next], op)
 
+    def _create_BF(self):
+        """Belief dynamics"""
+        b_next = cat.struct_SX(self.b)
+
+        # Compute the mean
+        [mu_bar] = self.F([self.b['m'], self.u])
+
+        # Compute linearization
+        [A, _] = self.Fj_x([self.b['m'], self.u])
+        [C, _] = self.hj_x([mu_bar])
+
+        # Get system and observation noises, as if the state was mu_bar
+        [M] = self.M([self.b['m'], self.u])
+        [N] = self.N([self.b['m']])
+
+        # Predict the covariance
+        S_bar = ca.mul([A, self.b['S'], A.T]) + M
+
+        # Compute the inverse
+        P = ca.mul([C, S_bar, C.T]) + N
+        P_inv = ca.inv(P)
+
+        # Kalman gain
+        K = ca.mul([S_bar, C.T, P_inv])
+
+        # Update equations
+        b_next['m'] = mu_bar
+        b_next['S'] = ca.mul(ca.DMatrix.eye(self.nx) - ca.mul(K, C), S_bar)
+
+        # (b, u) -> b_next
+        op = {'input_scheme': ['b', 'u'],
+              'output_scheme': ['b_next']}
+        return ca.SXFunction('Belief dynamics',
+                             [self.b, self.u], [b_next], op)
+
     def _create_EBF(self):
         """Extended belief dynamics"""
         eb_next = cat.struct_SX(self.eb)
@@ -326,10 +367,10 @@ class Model:
         eb_next['S'] = ca.mul(ca.DMatrix.eye(self.nx) - ca.mul(K, C), S_bar)
         eb_next['L'] = ca.mul([A, self.eb['L'], A.T]) + ca.mul([K, C, S_bar])
 
-        # (b, u, z) -> b_next
-        op = {'input_scheme': ['b', 'u', 'z'],
-              'output_scheme': ['b_next']}
-        return ca.SXFunction('Extended Kalman filter',
+        # (eb, u) -> eb_next
+        op = {'input_scheme': ['eb', 'u'],
+              'output_scheme': ['eb_next']}
+        return ca.SXFunction('Extended belief dynamics',
                              [self.eb, self.u], [eb_next], op)
 
     # ========================================================================

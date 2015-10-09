@@ -35,11 +35,18 @@ M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-3:, -3:] = ca.DMatrix.eye(3) * 1e-5  # catcher's dynamics is less noisy
 # Final cost of coordinate discrepancy
 w_cl = 1e1
+# Final cost of uncertainty
+w_S = 1e1
 # Running cost on controls
 R = 1e-1 * ca.diagcat([1, 1])
 
+
+# Model creation wrapper
+def new_model():
+    return Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, w_S, R))
+
 # Create model
-model = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
+model = new_model()
 
 
 # ============================================================================
@@ -50,11 +57,23 @@ plan = Planner.create_plan(model)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
 
-# Plot 2D
-_, ax = plt.subplots(figsize=(6, 6))
-Plotter.plot_trajectory(ax, x_all)
+# Simulate ebelief trajectory
+eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
-# Simulate ebelief propagation
+# Plot 2D
+_, ax = plt.subplots(figsize=(12, 12))
+Plotter.plot_plan(ax, eb_all)
+
+
+# ============================================================================
+#                             Belief planning
+# ============================================================================
+# Find optimal controls
+plan = Planner.create_belief_plan(model, plan)
+x_all = plan.prefix['X']
+u_all = plan.prefix['U']
+
+# Simulate ebelief trajectory
 eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
 # Plot 2D
@@ -96,8 +115,8 @@ plt.show()
 # ============================================================================
 # ----------------------------- Simulation --------------------------------- #
 # Create models for simulation and planning
-model = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
-model_p = Model((m0, S0, L0), dt, n_rk, n_delay, M, (w_cl, R))
+model = new_model()
+model_p = new_model()
 
 # Simulator: simulate first n_delay time-steps with zero controls
 u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
