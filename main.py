@@ -19,9 +19,9 @@ __author__ = 'belousov'
 #                              Initialization
 # ============================================================================
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi/2])
+m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi/2, 0])
 # Initial covariance
-S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2]) * 0.25
+S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
@@ -32,11 +32,11 @@ n_rk = 1
 n_delay = 3
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
-M[-3:, -3:] = ca.DMatrix.eye(3) * 1e-5  # catcher's dynamics is less noisy
+M[-4:, -4:] = ca.DMatrix.eye(4) * 1e-5  # catcher's dynamics is less noisy
 # Final cost of coordinate discrepancy: w_cl * dr.T * dr
 w_cl = 1e1
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1, 1, 1e-2])
+R = 1e-1 * ca.diagcat([1, 1, 1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e1
 # Running cost of uncertainty: w_S * tr(S)
@@ -44,11 +44,12 @@ w_S = 1e-1
 # Control limits
 v1, v2 = 4, 3
 w_max = 2 * ca.pi
+psi_max = 0.9 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
     return Model((m0, S0, L0), dt, n_rk, n_delay,
-                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max))
+                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max, psi_max))
 
 # Create model
 model = new_model()

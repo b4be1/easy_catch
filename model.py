@@ -15,7 +15,7 @@ class Model:
     g = 9.81
 
     def __init__(self, (m0, S0, L0), dt, n_rk, n_delay,
-                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max)):
+                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max, psi_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -28,12 +28,13 @@ class Model:
         # State x
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
-                                   'x_c', 'y_c', 'phi'])
+                                   'x_c', 'y_c', 'phi', 'psi'])
         # Control u
-        self.u = cat.struct_symSX(['v', 'w', 'theta'])
+        self.u = cat.struct_symSX(['v', 'w_phi', 'w_psi', 'theta'])
 
         # Observation z
-        self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b', 'x_c', 'y_c', 'phi'])
+        self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b',
+                                   'x_c', 'y_c', 'phi', 'psi'])
 
         # Belief b = (mu, Sigma)
         self.b = cat.struct_symSX([
@@ -82,7 +83,7 @@ class Model:
         self.cS = self._create_uncertainty_cost(w_S)
 
         # Control limits
-        self.v1, self.v2, self.w_max = v1, v2, w_max
+        self.v1, self.v2, self.w_max, self.psi_max = v1, v2, w_max, psi_max
 
         # Number of simulation steps till the ball hits the ground
         self.n = self._estimate_simulation_duration()
@@ -167,8 +168,8 @@ class Model:
 
     def _create_continuous_dynamics(self):
         # Unpack arguments
-        [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c, phi] = self.x[...]
-        [v, w, theta] = self.u[...]
+        [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c, phi, psi] = self.x[...]
+        [v, w_phi, w_psi, theta] = self.u[...]
 
         # Define the governing ordinary differential equation (ODE)
         rhs = cat.struct_SX(self.x)
@@ -180,7 +181,8 @@ class Model:
         rhs['vz_b'] = -self.g
         rhs['x_c'] = v * ca.cos(phi + theta)
         rhs['y_c'] = v * ca.sin(phi + theta)
-        rhs['phi'] = w
+        rhs['phi'] = w_phi
+        rhs['psi'] = w_psi
 
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['x_dot']}
@@ -236,17 +238,21 @@ class Model:
                              [self.x, self.u], [M], op)
 
     def _create_observation_covariance_function(self):
-        d = ca.veccat([ca.cos(self.x['phi']),
-                       ca.sin(self.x['phi'])])
+        d = ca.veccat([ca.cos(self.x['psi']) * ca.cos(self.x['phi']),
+                       ca.cos(self.x['psi']) * ca.sin(self.x['phi']),
+                       ca.sin(self.x['psi'])])
         r = ca.veccat([self.x['x_b'] - self.x['x_c'],
-                       self.x['y_b'] - self.x['y_c']])
+                       self.x['y_b'] - self.x['y_c'],
+                       self.x['z_b']])
         r_cos_omega = ca.mul(d.T, r)
         cos_omega = r_cos_omega / (ca.norm_2(r) + 1e-6)
 
         # Look at the ball and be close to the ball
         N = self.z.squared(ca.SX.zeros(self.nz, self.nz))
-        N['x_b', 'x_b'] = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
-        N['y_b', 'y_b'] = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
+        variance = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
+        N['x_b', 'x_b'] = variance
+        N['y_b', 'y_b'] = variance
+        N['z_b', 'z_b'] = variance
 
         op = {'input_scheme': ['x'],
               'output_scheme': ['N']}
@@ -420,16 +426,27 @@ class Model:
     def _set_control_limits(self, lbx, ubx):
         # v >= 0
         lbx['U', :, 'v'] = 0
-        # w >= -w_max
-        lbx['U', :, 'w'] = -self.w_max
-        # w <= w_max
-        ubx['U', :, 'w'] = self.w_max
-        # theta >= -ca.pi
+
+        # w_phi >= -w_max
+        lbx['U', :, 'w_phi'] = -self.w_max
+        # w_phi <= w_max
+        ubx['U', :, 'w_phi'] = self.w_max
+
+        # w_psi >= -w_max
+        lbx['U', :, 'w_psi'] = -self.w_max
+        # w_psi <= w_max
+        ubx['U', :, 'w_psi'] = self.w_max
+
+        # theta >= -pi
         lbx['U', :, 'theta'] = -ca.pi
-        # theta <= ca.pi
+        # theta <= pi
         ubx['U', :, 'theta'] = ca.pi
 
-
+    def _set_state_limits(self, lbx, ubx):
+        # psi >= 0
+        lbx['X', :, 'psi'] = 0
+        # psi <= pi/2
+        ubx['X', :, 'psi'] = self.psi_max
 
 
 

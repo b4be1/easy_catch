@@ -163,11 +163,14 @@ class Planner:
         lbx = V(-ca.inf)
         ubx = V(ca.inf)
 
-        # Initial state
-        lbx['X', 0] = ubx['X', 0] = model.m0
-
         # Control limits
         model._set_control_limits(lbx, ubx)
+
+        # State limits
+        model._set_state_limits(lbx, ubx)
+
+        # Initial state
+        lbx['X', 0] = ubx['X', 0] = model.m0
 
         return [lbx, ubx]
 
