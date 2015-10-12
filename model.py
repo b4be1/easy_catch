@@ -432,10 +432,10 @@ class Model:
         # w_phi <= w_max
         ubx['U', :, 'w_phi'] = self.w_max
 
-        # w_psi >= -w_max
-        lbx['U', :, 'w_psi'] = -self.w_max
-        # w_psi <= w_max
-        ubx['U', :, 'w_psi'] = self.w_max
+        # w_psi >= -5 * w_max
+        lbx['U', :, 'w_psi'] = -5 * self.w_max
+        # w_psi <= 5 * w_max
+        ubx['U', :, 'w_psi'] = 5 * self.w_max
 
         # theta >= -pi
         lbx['U', :, 'theta'] = -ca.pi

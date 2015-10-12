@@ -13,16 +13,6 @@ class Plotter:
     # ========================================================================
     # -------------------------- Helper methods ---------------------------- #
     @staticmethod
-    def _plot_arrows(name, ax, x, y, phi):
-        x_vec = ca.cos(phi)
-        y_vec = ca.sin(phi)
-        ax.quiver(x, y, x_vec, y_vec,
-                  units='xy', angles='xy', scale=1.5, width=0.08,
-                  headwidth=4, headlength=6, headaxislength=5,
-                  color='r', alpha=0.8, lw=0.1)
-        return [Patch(color='red', label=name)]
-
-    @staticmethod
     def _create_ellipse(mu, cov):
         if len(mu) != 2 and cov.shape != (2, 2):
             raise TypeError('Arguments should be 2D')
@@ -36,6 +26,31 @@ class Plotter:
         # Create the ellipse
         return Ellipse(mu, width, height, alpha,
                        fill=True, color='y', alpha=0.1)
+
+    @staticmethod
+    def _plot_arrows(name, ax, x, y, phi):
+        x_vec = ca.cos(phi)
+        y_vec = ca.sin(phi)
+        ax.quiver(x, y, x_vec, y_vec,
+                  units='xy', angles='xy', scale=1.5, width=0.08,
+                  headwidth=4, headlength=6, headaxislength=5,
+                  color='r', alpha=0.8, lw=0.1)
+        return [Patch(color='red', label=name)]
+
+    @staticmethod
+    def _plot_arrows_3D(name, ax, x, y, phi, psi):
+        x = ca.veccat(x)
+        y = ca.veccat(y)
+        z = ca.DMatrix.zeros(x.size())
+        phi = ca.veccat(phi)
+        psi = ca.veccat(psi)
+        x_vec = ca.cos(psi) * ca.cos(phi)
+        y_vec = ca.cos(psi) * ca.sin(phi)
+        z_vec = ca.sin(psi)
+        ax.quiver(x + x_vec, y + y_vec, z + z_vec,
+                  x_vec, y_vec, z_vec,
+                  color='r', alpha=0.8)
+        return [Patch(color='red', label=name)]
 
     # ---------------------------- Trajectory ------------------------------ #
     @classmethod
@@ -161,6 +176,9 @@ class Plotter:
     def plot_trajectory_3D(cls, ax, x_all):
         cls._plot_ball_trajectory_3D('Ball trajectory 3D', ax, x_all)
         cls._plot_catcher_trajectory_3D('Catcher trajectory 3D', ax, x_all)
+        cls._plot_arrows_3D('Catcher gaze', ax,
+                         x_all[:, 'x_c'], x_all[:, 'y_c'],
+                         x_all[:, 'phi'], x_all[:, 'psi'])
 
     @staticmethod
     def _plot_ball_trajectory_3D(name, ax, x_all):

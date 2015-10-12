@@ -19,7 +19,7 @@ __author__ = 'belousov'
 #                              Initialization
 # ============================================================================
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi/2, 0])
+m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi, 0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
@@ -42,7 +42,7 @@ w_Sl = 1e1
 # Running cost of uncertainty: w_S * tr(S)
 w_S = 1e-1
 # Control limits
-v1, v2 = 4, 3
+v1, v2 = 5, 3
 w_max = 2 * ca.pi
 psi_max = 0.9 * ca.pi/2
 
@@ -102,7 +102,7 @@ Plotter.plot_trajectory_3D(ax_3D, x_all)
 # Nominal controls for simulation
 u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, 10))
 u_all[:, 'v'] = 2
-u_all[:, 'w'] = 0.5
+u_all[:, 'w_phi'] = -1
 
 # Initial state is drawn from N(m0, S0)
 model.init_x0()
