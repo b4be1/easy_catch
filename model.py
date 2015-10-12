@@ -80,7 +80,7 @@ class Model:
 
         # Cost functions: final and running uncertainty
         self.cSl = self._create_final_uncertainty_cost(w_Sl)
-        self.cS = self._create_uncertainty_cost(w_S)
+        self.cS = self._create_running_uncertainty_cost(w_S)
 
         # Control limits
         self.v1, self.v2, self.w_max, self.psi_max = v1, v2, w_max, psi_max
@@ -397,7 +397,7 @@ class Model:
         d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
         r = self.x[ca.veccat, ['vx_b', 'vy_b']]
 
-        final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc) + ca.mul(d.T, r)
+        final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc)  # + ca.mul(d.T, r)
         op = {'input_scheme': ['x'],
               'output_scheme': ['cl']}
         return ca.SXFunction('Final cost', [self.x],
@@ -406,8 +406,8 @@ class Model:
     def _create_running_cost(self, w_c, R):
         d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
         r = self.x[ca.veccat, ['vx_b', 'vy_b']]
-        running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat]) +\
-            w_c * ca.mul(d.T, r) * self.dt
+        running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])\
+            + w_c * ca.mul(d.T, r) * self.dt
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u],
@@ -420,8 +420,8 @@ class Model:
         return ca.SXFunction('Final uncertainty cost', [self.b],
                              [final_uncertainty_cost], op)
 
-    def _create_uncertainty_cost(self, w_S):
-        running_uncertainty_cost = 0.5 * w_S * ca.trace(self.b['S'])
+    def _create_running_uncertainty_cost(self, w_S):
+        running_uncertainty_cost = 0.5 * w_S * ca.trace(self.b['S']) * self.dt
         op = {'input_scheme': ['b'],
               'output_scheme': ['cS']}
         return ca.SXFunction('Running uncertainty cost', [self.b],
@@ -439,10 +439,10 @@ class Model:
         # w_phi <= w_max
         ubx['U', :, 'w_phi'] = self.w_max
 
-        # w_psi >= -5 * w_max
-        lbx['U', :, 'w_psi'] = -5 * self.w_max
-        # w_psi <= 5 * w_max
-        ubx['U', :, 'w_psi'] = 5 * self.w_max
+        # w_psi >= -w_max
+        lbx['U', :, 'w_psi'] = -self.w_max
+        # w_psi <= w_max
+        ubx['U', :, 'w_psi'] = self.w_max
 
         # theta >= -pi
         lbx['U', :, 'theta'] = -ca.pi

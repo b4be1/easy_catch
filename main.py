@@ -19,34 +19,34 @@ __author__ = 'belousov'
 #                              Initialization
 # ============================================================================
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 4, ca.pi, 0])
+m0 = ca.DMatrix([0, 0, 0, 10, 10, 25, 30, 20, -0.75*ca.pi, 0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.1
+dt = 0.2
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
-n_delay = 3
+n_delay = 2
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-4:, -4:] = ca.DMatrix.eye(4) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise when looking directly at the ball
 N_var = 1e-2
-# Final cost: match coordinate and face the ball
-w_cl = 1e1
-# Running cost on state: w_c * face_the_ball
-w_c = 1e-1
+# Final cost: w_cl * distance_between_ball_and_catcher
+w_cl = 1e2
+# Running cost on facing the ball: w_c * face_the_ball
+w_c = 0
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1, 1, 1, 1e-2])
+R = 1e-1 * ca.diagcat([1, 1e-1, 1e-1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e1
 # Running cost of uncertainty: w_S * tr(S)
-w_S = 1e-1
+w_S = 1e0
 # Control limits
-v1, v2 = 5, 3
+v1, v2 = 10, 5
 w_max = 2 * ca.pi
 psi_max = 0.8 * ca.pi/2
 
@@ -200,8 +200,8 @@ fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 axes[0].set_title("Model predictive control, simulation")
 axes[1].set_title("Model predictive control, planning")
 for ax in axes:
-    ax.set_xlim(-2, 12)
-    ax.set_ylim(-2, 12)
+    ax.set_xlim(-10, 60)
+    ax.set_ylim(-10, 60)
     ax.grid(True)
     ax.set_aspect('equal')
 
@@ -223,8 +223,8 @@ for k, _ in enumerate(EB_all):
     # Clear old plan
     axes[1].clear()
     axes[1].set_title("Model predictive control, planning")
-    ax.set_xlim(-2, 12)
-    ax.set_ylim(-2, 12)
+    ax.set_xlim(-10, 60)
+    ax.set_ylim(-10, 60)
     axes[1].grid(True)
     axes[1].set_aspect('equal')
 
