@@ -15,7 +15,7 @@ class Model:
     g = 9.81
 
     def __init__(self, (m0, S0, L0), dt, n_rk, n_delay,
-                 M, (w_cl, R, w_Sl, w_S), (v_max, w_max)):
+                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -30,7 +30,7 @@ class Model:
                                    'vx_b', 'vy_b', 'vz_b',
                                    'x_c', 'y_c', 'phi'])
         # Control u
-        self.u = cat.struct_symSX(['v', 'w'])
+        self.u = cat.struct_symSX(['v', 'w', 'theta'])
 
         # Observation z
         self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b', 'x_c', 'y_c', 'phi'])
@@ -82,8 +82,7 @@ class Model:
         self.cS = self._create_uncertainty_cost(w_S)
 
         # Control limits
-        self.v_max = v_max
-        self.w_max = w_max
+        self.v1, self.v2, self.w_max = v1, v2, w_max
 
         # Number of simulation steps till the ball hits the ground
         self.n = self._estimate_simulation_duration()
@@ -169,7 +168,7 @@ class Model:
     def _create_continuous_dynamics(self):
         # Unpack arguments
         [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c, phi] = self.x[...]
-        [v, w] = self.u[...]
+        [v, w, theta] = self.u[...]
 
         # Define the governing ordinary differential equation (ODE)
         rhs = cat.struct_SX(self.x)
@@ -179,8 +178,8 @@ class Model:
         rhs['vx_b'] = 0
         rhs['vy_b'] = 0
         rhs['vz_b'] = -self.g
-        rhs['x_c'] = v * ca.cos(phi)
-        rhs['y_c'] = v * ca.sin(phi)
+        rhs['x_c'] = v * ca.cos(phi + theta)
+        rhs['y_c'] = v * ca.sin(phi + theta)
         rhs['phi'] = w
 
         op = {'input_scheme': ['x', 'u'],
@@ -242,7 +241,7 @@ class Model:
         r = ca.veccat([self.x['x_b'] - self.x['x_c'],
                        self.x['y_b'] - self.x['y_c']])
         r_cos_omega = ca.mul(d.T, r)
-        cos_omega = r_cos_omega / (ca.norm_2(r) + 1e-2)
+        cos_omega = r_cos_omega / (ca.norm_2(r) + 1e-6)
 
         # Look at the ball and be close to the ball
         N = self.z.squared(ca.SX.zeros(self.nz, self.nz))
@@ -421,12 +420,14 @@ class Model:
     def _set_control_limits(self, lbx, ubx):
         # v >= 0
         lbx['U', :, 'v'] = 0
-        # v <= v_max
-        ubx['U', :, 'v'] = self.v_max
         # w >= -w_max
         lbx['U', :, 'w'] = -self.w_max
         # w <= w_max
         ubx['U', :, 'w'] = self.w_max
+        # theta >= -ca.pi
+        lbx['U', :, 'theta'] = -ca.pi
+        # theta <= ca.pi
+        ubx['U', :, 'theta'] = ca.pi
 
 
 

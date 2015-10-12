@@ -36,19 +36,19 @@ M[-3:, -3:] = ca.DMatrix.eye(3) * 1e-5  # catcher's dynamics is less noisy
 # Final cost of coordinate discrepancy: w_cl * dr.T * dr
 w_cl = 1e1
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1, 1])
+R = 1e-1 * ca.diagcat([1, 1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e1
 # Running cost of uncertainty: w_S * tr(S)
 w_S = 1e-1
 # Control limits
-v_max = 8
+v1, v2 = 4, 3
 w_max = 2 * ca.pi
 
 # Model creation wrapper
 def new_model():
     return Model((m0, S0, L0), dt, n_rk, n_delay,
-                 M, (w_cl, R, w_Sl, w_S), (v_max, w_max))
+                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max))
 
 # Create model
 model = new_model()
@@ -69,6 +69,11 @@ eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 _, ax = plt.subplots(figsize=(12, 12))
 Plotter.plot_plan(ax, eb_all)
 
+# Plot 3D
+fig_3D = plt.figure(figsize=(12, 8))
+ax_3D = fig_3D.add_subplot(111, projection='3d')
+Plotter.plot_trajectory_3D(ax_3D, x_all)
+
 
 # ============================================================================
 #                           Belief space planning
@@ -84,6 +89,11 @@ eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 # Plot 2D
 _, ax = plt.subplots(figsize=(12, 12))
 Plotter.plot_plan(ax, eb_all)
+
+# Plot 3D
+fig_3D = plt.figure(figsize=(12, 8))
+ax_3D = fig_3D.add_subplot(111, projection='3d')
+Plotter.plot_trajectory_3D(ax_3D, x_all)
 
 # ============================================================================
 #                   Simulate trajectory and observations

@@ -41,10 +41,17 @@ class Planner:
     def _create_nonlinear_constraints(model, V):
         g, lbg, ubg = [], [], []
         for k in range(model.n):
+            # Multiple shooting
             [xk_next] = model.F([V['X', k], V['U', k]])
             g.append(xk_next - V['X', k+1])
             lbg.append(ca.DMatrix.zeros(model.nx))
             ubg.append(ca.DMatrix.zeros(model.nx))
+
+            # Control constraints
+            g.append(V['U', k, 'v'] -\
+                     model.v1 - model.v2 * ca.cos(V['U', k, 'theta']))
+            lbg.append(-ca.inf)
+            ubg.append(0)
         g = ca.veccat(g)
         lbg = ca.veccat(lbg)
         ubg = ca.veccat(ubg)
@@ -106,6 +113,12 @@ class Planner:
             g.append(bk_next['m'] - V['X', k+1])
             lbg.append(ca.DMatrix.zeros(model.nx))
             ubg.append(ca.DMatrix.zeros(model.nx))
+
+            # Control constraints
+            g.append(V['U', k, 'v'] -\
+                     model.v1 - model.v2 * ca.cos(V['U', k, 'theta']))
+            lbg.append(-ca.inf)
+            ubg.append(0)
 
             # Advance time
             bk = bk_next
