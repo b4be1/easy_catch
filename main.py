@@ -19,7 +19,7 @@ __author__ = 'belousov'
 #                              Initialization
 # ============================================================================
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 10, 10, 25, 30, 20, -0.75*ca.pi, 0])
+m0 = ca.DMatrix([0, 0, 0, 10, 10, 15, 30, 20, -0.75*ca.pi, 0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
