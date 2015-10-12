@@ -19,13 +19,13 @@ __author__ = 'belousov'
 #                              Initialization
 # ============================================================================
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 0, ca.pi, 0])
+m0 = ca.DMatrix([0, 0, 0, 5, 5, 10, 5, 4, ca.pi, 0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.2
+dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
@@ -33,8 +33,12 @@ n_delay = 3
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-4:, -4:] = ca.DMatrix.eye(4) * 1e-5  # catcher's dynamics is less noisy
-# Final cost of coordinate discrepancy: w_cl * dr.T * dr
+# Observation noise when looking directly at the ball
+N_var = 1e-2
+# Final cost: match coordinate and face the ball
 w_cl = 1e1
+# Running cost on state: w_c * face_the_ball
+w_c = 1e-1
 # Running cost on controls: u.T * R * u
 R = 1e-1 * ca.diagcat([1, 1, 1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
@@ -44,12 +48,12 @@ w_S = 1e-1
 # Control limits
 v1, v2 = 5, 3
 w_max = 2 * ca.pi
-psi_max = 0.9 * ca.pi/2
+psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
-    return Model((m0, S0, L0), dt, n_rk, n_delay,
-                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max, psi_max))
+    return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_var),
+                 (w_cl, w_c, R, w_Sl, w_S), (v1, v2, w_max, psi_max))
 
 # Create model
 model = new_model()
@@ -142,6 +146,7 @@ b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
 # Store simulation results
 X_all = x_all.cast()
+Z_all = z_all.cast()
 U_all = u_all.cast()
 B_all = b_all.cast()
 
@@ -176,8 +181,9 @@ while model.n != 0:
 
     # Save simulation results
     X_all.appendColumns(x_all.cast()[:, 1:])  # 0'th state is already included
+    Z_all.appendColumns(z_all.cast()[:, 1:])
     U_all.appendColumns(u_all.cast()[:, 0])   # save only the first control
-    B_all.appendColumns(b_all.cast()[:, 1:])  # 0'th belief is also included
+    B_all.appendColumns(b_all.cast()[:, 1:])
     EB_all.append([eb_all_head, eb_all_tail])
 
     # Advance time
@@ -202,8 +208,10 @@ for ax in axes:
 # Plot the first piece
 head = 0
 x_piece = model.x.repeated(X_all[:, head:head+n_delay+1])
+z_piece = model.z.repeated(Z_all[:, head:head+n_delay+1])
 b_piece = model.b.repeated(B_all[:, head:head+n_delay+1])
 Plotter.plot_trajectory(axes[0], x_piece)
+Plotter.plot_observed_ball_trajectory(axes[0], z_piece)
 Plotter.plot_filtered_trajectory(axes[0], b_piece)
 fig.canvas.draw()
 
@@ -230,16 +238,21 @@ for k, _ in enumerate(EB_all):
 
     # Simulate one step
     x_piece = model.x.repeated(X_all[:, head:head+2])
+    z_piece = model.z.repeated(Z_all[:, head:head+2])
     b_piece = model.b.repeated(B_all[:, head:head+2])
     plt.waitforbuttonpress()
     Plotter.plot_trajectory(axes[0], x_piece)
+    Plotter.plot_observed_ball_trajectory(axes[0], z_piece)
     Plotter.plot_filtered_trajectory(axes[0], b_piece)
     fig.canvas.draw()
 
     # Advance time
     head += 1
 
-
+# Plot 3D
+fig_3D = plt.figure(figsize=(12, 8))
+ax_3D = fig_3D.add_subplot(111, projection='3d')
+Plotter.plot_trajectory_3D(ax_3D, model.x.repeated(X_all))
 
 
 

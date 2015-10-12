@@ -14,8 +14,8 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay,
-                 M, (w_cl, R, w_Sl, w_S), (v1, v2, w_max, psi_max)):
+    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, (M, N_var),
+                 (w_cl, w_c, R, w_Sl, w_S), (v1, v2, w_max, psi_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -66,7 +66,7 @@ class Model:
         # Noise, system noise covariance matrix M = M(x, u)
         self.M = self._create_system_covariance_function(M)
         # State-dependent observation noise covariance matrix N = N(x, u)
-        self.N = self._create_observation_covariance_function()
+        self.N = self._create_observation_covariance_function(N_var)
 
         # Noisy dynamics
         [self.Fn, self.hn] = self._noisy_dynamics_init()
@@ -75,8 +75,8 @@ class Model:
         [self.EKF, self.BF, self.EBF] = self._filters_init()
 
         # Cost functions: final and running
-        self.cl = self._create_final_cost_function(w_cl)
-        self.c = self._create_running_cost_function(R)
+        self.cl = self._create_final_cost(w_cl)
+        self.c = self._create_running_cost(w_c, R)
 
         # Cost functions: final and running uncertainty
         self.cSl = self._create_final_uncertainty_cost(w_Sl)
@@ -237,7 +237,7 @@ class Model:
         return ca.SXFunction('System covariance',
                              [self.x, self.u], [M], op)
 
-    def _create_observation_covariance_function(self):
+    def _create_observation_covariance_function(self, N_var):
         d = ca.veccat([ca.cos(self.x['psi']) * ca.cos(self.x['phi']),
                        ca.cos(self.x['psi']) * ca.sin(self.x['phi']),
                        ca.sin(self.x['psi'])])
@@ -249,7 +249,7 @@ class Model:
 
         # Look at the ball and be close to the ball
         N = self.z.squared(ca.SX.zeros(self.nz, self.nz))
-        variance = ca.mul(r.T, r) * (1 - cos_omega) + 1e-2
+        variance = (1 - cos_omega) + N_var
         N['x_b', 'x_b'] = variance
         N['y_b', 'y_b'] = variance
         N['z_b', 'z_b'] = variance
@@ -387,20 +387,27 @@ class Model:
     # ========================================================================
     #                           Cost functions
     # ========================================================================
-    def _create_final_cost_function(self, w_cl):
+    def _create_final_cost(self, w_cl):
         # Final position
         x_b = self.x[ca.veccat, ['x_b', 'y_b']]
         x_c = self.x[ca.veccat, ['x_c', 'y_c']]
         dx_bc = x_b - x_c
 
-        final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc)
+        # Face the ball
+        d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
+        r = self.x[ca.veccat, ['vx_b', 'vy_b']]
+
+        final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc) + ca.mul(d.T, r)
         op = {'input_scheme': ['x'],
               'output_scheme': ['cl']}
         return ca.SXFunction('Final cost', [self.x],
                              [w_cl * final_cost], op)
 
-    def _create_running_cost_function(self, R):
-        running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])
+    def _create_running_cost(self, w_c, R):
+        d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
+        r = self.x[ca.veccat, ['vx_b', 'vy_b']]
+        running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat]) +\
+            w_c * ca.mul(d.T, r) * self.dt
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u],
