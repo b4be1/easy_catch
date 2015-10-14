@@ -66,6 +66,27 @@ class Planner:
             running_cost += stage_cost
         return final_cost + running_cost
 
+
+    # ========================================================================
+    #                            Common functions
+    # ========================================================================
+    @staticmethod
+    def _create_box_constraints(model, V):
+        lbx = V(-ca.inf)
+        ubx = V(ca.inf)
+
+        # Control limits
+        model._set_control_limits(lbx, ubx)
+
+        # State limits
+        model._set_state_limits(lbx, ubx)
+
+        # Initial state
+        lbx['X', 0] = ubx['X', 0] = model.m0
+
+        return [lbx, ubx]
+
+
     # ========================================================================
     #                          Belief space planning
     # ========================================================================
@@ -154,25 +175,6 @@ class Planner:
 
         return running_cost + final_cost +\
                running_uncertainty_cost + final_uncertainty_cost
-
-    # ========================================================================
-    #                            Common functions
-    # ========================================================================
-    @staticmethod
-    def _create_box_constraints(model, V):
-        lbx = V(-ca.inf)
-        ubx = V(ca.inf)
-
-        # Control limits
-        model._set_control_limits(lbx, ubx)
-
-        # State limits
-        model._set_state_limits(lbx, ubx)
-
-        # Initial state
-        lbx['X', 0] = ubx['X', 0] = model.m0
-
-        return [lbx, ubx]
 
 
 

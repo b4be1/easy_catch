@@ -41,8 +41,8 @@ class Simulator:
         n = len(u_all[:])
         bk = model.b0
         b_all = [bk]
-        for k in range(1, n+1):
-            [bk_next] = model.EKF([bk, u_all[k-1], z_all[k]])
+        for k in range(n):
+            [bk_next] = model.EKF([bk, u_all[k], z_all[k+1]])
             b_all.append(bk_next)
             bk = bk_next
         b_all = model.b.repeated(ca.horzcat(b_all))

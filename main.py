@@ -19,7 +19,7 @@ __author__ = 'belousov'
 #                              Initialization
 # ============================================================================
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 10, 10, 15, 30, 20, -0.75*ca.pi, 0])
+m0 = ca.DMatrix([0, 0, 0, 10, 10, 15, 25, 10, ca.pi, 0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
@@ -33,10 +33,11 @@ n_delay = 2
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-4:, -4:] = ca.DMatrix.eye(4) * 1e-5  # catcher's dynamics is less noisy
-# Observation noise when looking directly at the ball
-N_var = 1e-2
+# Observation noise
+N_min = 1e-2  # when looking directly at the ball
+N_max = 1e1   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
-w_cl = 1e2
+w_cl = 1e1
 # Running cost on facing the ball: w_c * face_the_ball
 w_c = 0
 # Running cost on controls: u.T * R * u
@@ -44,7 +45,7 @@ R = 1e-1 * ca.diagcat([1, 1e-1, 1e-1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e1
 # Running cost of uncertainty: w_S * tr(S)
-w_S = 1e0
+w_S = 1e1
 # Control limits
 v1, v2 = 10, 5
 w_max = 2 * ca.pi
@@ -52,7 +53,7 @@ psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
-    return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_var),
+    return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
                  (w_cl, w_c, R, w_Sl, w_S), (v1, v2, w_max, psi_max))
 
 # Create model
@@ -104,12 +105,11 @@ Plotter.plot_trajectory_3D(ax_3D, x_all)
 #                   Simulate trajectory and observations
 # ============================================================================
 # Nominal controls for simulation
-u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, 10))
-u_all[:, 'v'] = 2
-u_all[:, 'w_phi'] = -1
+# u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, 15))
+# u_all[:, 'v'] = 5
 
 # Initial state is drawn from N(m0, S0)
-model.init_x0()
+# model.init_x0()
 
 # Simulate
 x_all = Simulator.simulate_trajectory(model, u_all)
@@ -117,7 +117,7 @@ z_all = Simulator.simulate_observed_trajectory(model, x_all)
 b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
 # Plot 2D
-_, ax = plt.subplots(figsize=(6, 6))
+_, ax = plt.subplots(figsize=(10, 10))
 Plotter.plot_trajectory(ax, x_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
 Plotter.plot_filtered_trajectory(ax, b_all)

@@ -14,7 +14,7 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
-    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, (M, N_var),
+    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
                  (w_cl, w_c, R, w_Sl, w_S), (v1, v2, w_max, psi_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
@@ -66,7 +66,7 @@ class Model:
         # Noise, system noise covariance matrix M = M(x, u)
         self.M = self._create_system_covariance_function(M)
         # State-dependent observation noise covariance matrix N = N(x, u)
-        self.N = self._create_observation_covariance_function(N_var)
+        self.N = self._create_observation_covariance_function(N_min, N_max)
 
         # Noisy dynamics
         [self.Fn, self.hn] = self._noisy_dynamics_init()
@@ -237,7 +237,7 @@ class Model:
         return ca.SXFunction('System covariance',
                              [self.x, self.u], [M], op)
 
-    def _create_observation_covariance_function(self, N_var):
+    def _create_observation_covariance_function(self, N_min, N_max):
         d = ca.veccat([ca.cos(self.x['psi']) * ca.cos(self.x['phi']),
                        ca.cos(self.x['psi']) * ca.sin(self.x['phi']),
                        ca.sin(self.x['psi'])])
@@ -249,7 +249,7 @@ class Model:
 
         # Look at the ball and be close to the ball
         N = self.z.squared(ca.SX.zeros(self.nz, self.nz))
-        variance = (1 - cos_omega) + N_var
+        variance = N_max * (1 - cos_omega) + N_min
         N['x_b', 'x_b'] = variance
         N['y_b', 'y_b'] = variance
         N['z_b', 'z_b'] = variance
@@ -286,9 +286,9 @@ class Model:
         [A, _] = self.Fj_x([self.b['m'], self.u])
         [C, _] = self.hj_x([mu_bar])
 
-        # Get system and observation noises, as if the state was mu_bar
+        # Get system and observation noises
         [M] = self.M([self.b['m'], self.u])
-        [N] = self.N([self.b['m']])
+        [N] = self.N([mu_bar])
 
         # Predict the covariance
         S_bar = ca.mul([A, self.b['S'], A.T]) + M
@@ -326,7 +326,7 @@ class Model:
 
         # Get system and observation noises, as if the state was mu_bar
         [M] = self.M([self.b['m'], self.u])
-        [N] = self.N([self.b['m']])
+        [N] = self.N([mu_bar])
 
         # Predict the covariance
         S_bar = ca.mul([A, self.b['S'], A.T]) + M
@@ -361,7 +361,7 @@ class Model:
 
         # Get system and observation noises, as if the state was mu_bar
         [M] = self.M([self.eb['m'], self.u])
-        [N] = self.N([self.eb['m']])
+        [N] = self.N([mu_bar])
 
         # Predict the covariance
         S_bar = ca.mul([A, self.eb['S'], A.T]) + M
@@ -394,20 +394,21 @@ class Model:
         dx_bc = x_b - x_c
 
         # Face the ball
-        d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
-        r = self.x[ca.veccat, ['vx_b', 'vy_b']]
+        # d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
+        # r = self.x[ca.veccat, ['vx_b', 'vy_b']]
 
-        final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc)  # + ca.mul(d.T, r)
+        final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc)
+        # + ca.mul(d.T, r)
         op = {'input_scheme': ['x'],
               'output_scheme': ['cl']}
         return ca.SXFunction('Final cost', [self.x],
                              [w_cl * final_cost], op)
 
     def _create_running_cost(self, w_c, R):
-        d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
-        r = self.x[ca.veccat, ['vx_b', 'vy_b']]
-        running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])\
-            + w_c * ca.mul(d.T, r) * self.dt
+        # d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
+        # r = self.x[ca.veccat, ['vx_b', 'vy_b']]
+        running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])
+        # + w_c * ca.mul(d.T, r) * self.dt
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u],
@@ -452,7 +453,7 @@ class Model:
     def _set_state_limits(self, lbx, ubx):
         # psi >= 0
         lbx['X', :, 'psi'] = 0
-        # psi <= pi/2
+        # psi < pi/2
         ubx['X', :, 'psi'] = self.psi_max
 
 
