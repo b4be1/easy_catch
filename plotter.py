@@ -32,7 +32,7 @@ class Plotter:
         x_vec = ca.cos(phi)
         y_vec = ca.sin(phi)
         ax.quiver(x, y, x_vec, y_vec,
-                  units='xy', angles='xy', scale=1.5, width=0.08,
+                  units='xy', angles='xy', scale=1, width=0.08,
                   headwidth=4, headlength=6, headaxislength=5,
                   color='r', alpha=0.8, lw=0.1)
         return [Patch(color='red', label=name)]
