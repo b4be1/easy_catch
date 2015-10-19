@@ -18,21 +18,35 @@ __author__ = 'belousov'
 # ============================================================================
 #                              Initialization
 # ============================================================================
+# Initial condition
+x_b0 = y_b0 = z_b0 = 0
+vx_b0 = 10
+vy_b0 = 10
+vz_b0 = 15
+
+x_c0 = 25
+y_c0 = 20
+vx_c0 = vy_c0 = 0
+phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
+psi0 = 0
+
 # Initial mean
-m0 = ca.DMatrix([0, 0, 0, 10, 10, 15, 20, 15, ca.pi, 0])
+m0 = ca.DMatrix([x_b0, y_b0, z_b0, vx_b0, vy_b0, vz_b0,
+                 x_c0, y_c0, vx_c0, vy_c0, phi0, psi0])
 # Initial covariance
-S0 = ca.diagcat([1, 1, 1, 1, 1, 1, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
+S0 = ca.diagcat([1, 1, 1, 1, 1, 1,
+                 0.5, 0.5, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.2
+dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
 n_delay = 2
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
-M[-4:, -4:] = ca.DMatrix.eye(4) * 1e-5  # catcher's dynamics is less noisy
+M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
 N_min = 1e-2  # when looking directly at the ball
 N_max = 1e1   # when the ball is 90 degrees from the gaze direction
@@ -41,20 +55,20 @@ w_cl = 1e2
 # Running cost on facing the ball: w_c * face_the_ball
 w_c = 0
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1, 1e-1, 1e-1, 1e-2])
+R = 1e-1 * ca.diagcat([1e1, 1e-1, 1e-1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e1
 # Running cost of uncertainty: w_S * tr(S)
 w_S = 1e0
 # Control limits
-v1, v2 = 10, 5
+F_c1, F_c2 = 7.5, 2.5
 w_max = 4 * ca.pi
 psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
     return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
-                 (w_cl, w_c, R, w_Sl, w_S), (v1, v2, w_max, psi_max))
+                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
 
 # Create model
 model = new_model()

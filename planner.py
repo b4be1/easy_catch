@@ -51,8 +51,8 @@ class Planner:
             ubg.append(ca.DMatrix.zeros(model.nx))
 
             # Control constraints
-            g.append(V['U', k, 'v'] -\
-                     model.v1 - model.v2 * ca.cos(V['U', k, 'theta']))
+            constraint_k = model._set_constraint(V, k)
+            g.append(constraint_k)
             lbg.append(-ca.inf)
             ubg.append(0)
         g = ca.veccat(g)
@@ -68,13 +68,13 @@ class Planner:
             [stage_cost] = model.c([V['X', k], V['U', k]])
 
             # Encourage looking at the ball
-            d = ca.veccat([ca.cos(V['X', k, 'psi'])*ca.cos(V['X', k, 'phi']),
-                           ca.cos(V['X', k, 'psi'])*ca.sin(V['X', k, 'phi']),
-                           ca.sin(V['X', k, 'psi'])])
-            r = ca.veccat([V['X', k, 'x_b'] - V['X', k, 'x_c'],
-                           V['X', k, 'y_b'] - V['X', k, 'y_c'],
-                           V['X', k, 'z_b']])
-            stage_cost -= 1e-1 * ca.mul(d.T, r)
+            # d = ca.veccat([ca.cos(V['X', k, 'psi'])*ca.cos(V['X', k, 'phi']),
+            #                ca.cos(V['X', k, 'psi'])*ca.sin(V['X', k, 'phi']),
+            #                ca.sin(V['X', k, 'psi'])])
+            # r = ca.veccat([V['X', k, 'x_b'] - V['X', k, 'x_c'],
+            #                V['X', k, 'y_b'] - V['X', k, 'y_c'],
+            #                V['X', k, 'z_b']])
+            # stage_cost -= 1e-1 * ca.mul(d.T, r)
 
             running_cost += stage_cost
         return final_cost + running_cost
@@ -149,8 +149,8 @@ class Planner:
             ubg.append(ca.DMatrix.zeros(model.nx))
 
             # Control constraints
-            g.append(V['U', k, 'v'] -\
-                     model.v1 - model.v2 * ca.cos(V['U', k, 'theta']))
+            constraint_k = model._set_constraint(V, k)
+            g.append(constraint_k)
             lbg.append(-ca.inf)
             ubg.append(0)
 

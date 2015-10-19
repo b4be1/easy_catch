@@ -14,8 +14,11 @@ class Model:
     # Gravitational constant on the surface of the Earth
     g = 9.81
 
+    # Air resistance per unit mass (max force 10, max velocity 12)
+    mu = 10.0 / 12
+
     def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
-                 (w_cl, w_c, R, w_Sl, w_S), (v1, v2, w_max, psi_max)):
+                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -28,9 +31,10 @@ class Model:
         # State x
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
-                                   'x_c', 'y_c', 'phi', 'psi'])
+                                   'x_c', 'y_c', 'vx_c', 'vy_c',
+                                   'phi', 'psi'])
         # Control u
-        self.u = cat.struct_symSX(['v', 'w_phi', 'w_psi', 'theta'])
+        self.u = cat.struct_symSX(['F_c', 'w_phi', 'w_psi', 'theta'])
 
         # Observation z
         self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b',
@@ -83,7 +87,8 @@ class Model:
         self.cS = self._create_running_uncertainty_cost(w_S)
 
         # Control limits
-        self.v1, self.v2, self.w_max, self.psi_max = v1, v2, w_max, psi_max
+        self.F_c1, self.F_c2,\
+        self.w_max, self.psi_max = F_c1, F_c2, w_max, psi_max
 
         # Number of simulation steps till the ball hits the ground
         self.n = self._estimate_simulation_duration()
@@ -168,8 +173,9 @@ class Model:
 
     def _create_continuous_dynamics(self):
         # Unpack arguments
-        [x_b, y_b, z_b, vx_b, vy_b, vz_b, x_c, y_c, phi, psi] = self.x[...]
-        [v, w_phi, w_psi, theta] = self.u[...]
+        [x_b, y_b, z_b, vx_b, vy_b, vz_b,
+         x_c, y_c, vx_c, vy_c, phi, psi] = self.x[...]
+        [F_c, w_phi, w_psi, theta] = self.u[...]
 
         # Define the governing ordinary differential equation (ODE)
         rhs = cat.struct_SX(self.x)
@@ -179,8 +185,10 @@ class Model:
         rhs['vx_b'] = 0
         rhs['vy_b'] = 0
         rhs['vz_b'] = -self.g
-        rhs['x_c'] = v * ca.cos(phi + theta)
-        rhs['y_c'] = v * ca.sin(phi + theta)
+        rhs['x_c'] = vx_c
+        rhs['y_c'] = vy_c
+        rhs['vx_c'] = F_c * ca.cos(phi + theta) - self.mu * vx_c
+        rhs['vy_c'] = F_c * ca.sin(phi + theta) - self.mu * vy_c
         rhs['phi'] = w_phi
         rhs['psi'] = w_psi
 
@@ -247,7 +255,7 @@ class Model:
         r_cos_omega = ca.mul(d.T, r)
         cos_omega = r_cos_omega / (ca.norm_2(r) + 1e-6)
 
-        # Look at the ball and be close to the ball
+        # Look at the ball
         N = self.z.squared(ca.SX.zeros(self.nz, self.nz))
         variance = N_max * (1 - cos_omega) + N_min
         N['x_b', 'x_b'] = variance
@@ -429,11 +437,11 @@ class Model:
                              [running_uncertainty_cost], op)
 
     # ========================================================================
-    #                      Function called by Planner
+    #                      Functions called by Planner
     # ========================================================================
     def _set_control_limits(self, lbx, ubx):
-        # v >= 0
-        lbx['U', :, 'v'] = 0
+        # F_c >= 0
+        lbx['U', :, 'F_c'] = 0
 
         # w_phi >= -w_max
         lbx['U', :, 'w_phi'] = -self.w_max
@@ -456,7 +464,9 @@ class Model:
         # psi < pi/2
         ubx['X', :, 'psi'] = self.psi_max
 
-
+    def _set_constraint(self, V, k):
+        return V['U', k, 'F_c'] -\
+               self.F_c1 - self.F_c2 * ca.cos(V['U', k, 'theta'])
 
 
 
