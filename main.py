@@ -2,6 +2,7 @@ from __future__ import division
 
 import matplotlib.pyplot as plt
 import numpy as np
+import csv
 
 import casadi as ca
 
@@ -267,12 +268,12 @@ for k, _ in enumerate(EB_all):
     # Advance time
     head += 1
 
-
-# -------------------------- Plot full simulation -------------------------- #
 x_all = model.x.repeated(X_all)
 z_all = model.z.repeated(Z_all)
 b_all = model.b.repeated(B_all)
 
+
+# -------------------------- Plot full simulation -------------------------- #
 # Plot 2D
 _, ax = plt.subplots(figsize=(12, 12))
 Plotter.plot_trajectory(ax, x_all)
@@ -318,9 +319,23 @@ ax.plot(t_all, cba)
 ax.grid(True)
 
 
+# ========================================================================
+#                  Save/load trajectory to/from a csv-file
+# ========================================================================
+def save_trajectory(x_all, filename):
+    with open(filename, 'wb') as f:
+        writer = csv.writer(f)
+        for k in range(len(x_all[:])):
+            writer.writerow(list(x_all[k]))
 
 
-
+def load_trajectory(model, filename):
+    x_all = []
+    with open(filename, 'rb') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            x_all.append(row)
+    return model.x.repeated(ca.DMatrix(np.array(x_all, dtype=np.float64)).T)
 
 
 
