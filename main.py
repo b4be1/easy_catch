@@ -25,9 +25,11 @@ vy_b0 = 10
 vz_b0 = 15
 
 x_c0 = 25
-y_c0 = 20
+y_c0 = 15
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
+if phi0 < 0:
+    phi0 += 2 * ca.pi
 psi0 = 0
 
 # Initial mean
@@ -78,7 +80,7 @@ model = new_model()
 #                             Plan trajectory
 # ============================================================================
 # Find optimal controls
-plan = Planner.create_plan(model)
+plan, lam_x, lam_g = Planner.create_plan(model)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
 
@@ -99,7 +101,8 @@ Plotter.plot_trajectory_3D(ax_3D, x_all)
 #                           Belief space planning
 # ============================================================================
 # Find optimal controls
-plan = Planner.create_belief_plan(model, plan)
+plan = Planner.create_belief_plan(model, warm_start=False,
+                                  x0=plan, lam_x0=lam_x, lam_g0=lam_g)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
 
@@ -307,14 +310,12 @@ for k in range(n):
     x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
     r_cb = x_b - x_c
     r_cb_unit = r_cb / ca.norm_2(r_cb)
-    cba.append(r_cb_unit[0])  # cos of the angle with x-axis
+    cba.append(ca.arccos(r_cb_unit[0]))  # cos of the angle with x-axis
 
 # Plot 2D
 _, ax = plt.subplots(figsize=(8, 8))
 ax.plot(t_all, cba)
 ax.grid(True)
-
-
 
 
 

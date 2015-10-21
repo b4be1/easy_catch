@@ -33,12 +33,15 @@ class Planner:
 
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
-        op = {'linear_solver': 'ma97'}
+        op = {# Linear solver
+              'linear_solver':              'ma97',
+              # Acceptable termination
+              'acceptable_iter':            5}
         solver = ca.NlpSolver('solver', 'ipopt', nlp, op)
 
         # Solve
         sol = solver(x0=initial_plan, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
-        return V(sol['x'])
+        return V(sol['x']), sol['lam_x'], sol['lam_g']
 
     @staticmethod
     def _create_nonlinear_constraints(model, V):
@@ -104,7 +107,8 @@ class Planner:
     #                          Belief space planning
     # ========================================================================
     @classmethod
-    def create_belief_plan(cls, model, initial_plan=0):
+    def create_belief_plan(cls, model, warm_start=False,
+                           x0=0, lam_x0=0, lam_g0=0):
         # Degrees of freedom for the optimizer
         V = cat.struct_symSX([
             (
@@ -124,11 +128,33 @@ class Planner:
 
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
-        op = {'linear_solver': 'ma97'}
+        op = {# Linear solver
+              'linear_solver':              'ma97',
+              # Warm start
+              'warm_start_init_point':      'yes',
+              # Termination
+              'max_iter':                   200,
+              'tol':                        1e-3,
+              'constr_viol_tol':            1e-3,
+              'compl_inf_tol':              1e-3,
+              # Acceptable termination
+              'acceptable_tol':             1e-1,
+              'acceptable_iter':            5,
+              'acceptable_obj_change_tol':  1e-2,
+              # NLP
+              'fixed_variable_treatment':   'make_constraint',
+              # Quasi-Newton
+              'hessian_approximation':      'limited-memory',
+              'limited_memory_max_history': 5,
+              'limited_memory_max_skipping': 1}
         solver = ca.NlpSolver('solver', 'ipopt', nlp, op)
 
         # Solve
-        sol = solver(x0=initial_plan, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
+        if warm_start:
+            sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg,
+                         lam_x0=lam_x0, lam_g0=lam_g0)
+        else:
+            sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
         return V(sol['x'])
 
     @staticmethod
