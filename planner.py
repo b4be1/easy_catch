@@ -23,7 +23,7 @@ class Planner:
         [lbx, ubx] = cls._create_box_constraints(model, V)
 
         # Force the catcher to always look forward
-        lbx['U', :, 'theta'] = ubx['U', :, 'theta'] = 0
+        # lbx['U', :, 'theta'] = ubx['U', :, 'theta'] = 0
 
         # Non-linear constraints
         [g, lbg, ubg] = cls._create_nonlinear_constraints(model, V)

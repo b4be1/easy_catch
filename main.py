@@ -39,7 +39,7 @@ S0 = ca.diagcat([1, 1, 1, 1, 1, 1,
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.1
+dt = 0.2
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
@@ -55,11 +55,11 @@ w_cl = 1e2
 # Running cost on facing the ball: w_c * face_the_ball
 w_c = 0
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1e1, 1e-1, 1e-1, 1e-2])
+R = 1e-1 * ca.diagcat([1, 1, 1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
-w_Sl = 1e1
+w_Sl = 1e2
 # Running cost of uncertainty: w_S * tr(S)
-w_S = 1e0
+w_S = 1e1
 # Control limits
 F_c1, F_c2 = 7.5, 2.5
 w_max = 4 * ca.pi
@@ -207,7 +207,8 @@ while model.n != 0:
                               model_p.b(B_all[:, k+1])['S'])
     k += 1
 
-# ------------------------------- Plotting --------------------------------- #
+
+# ----------------------------- Plotting ----------------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 
 # Appearance
@@ -263,10 +264,69 @@ for k, _ in enumerate(EB_all):
     # Advance time
     head += 1
 
+
+# -------------------------- Plot full simulation -------------------------- #
+x_all = model.x.repeated(X_all)
+z_all = model.z.repeated(Z_all)
+b_all = model.b.repeated(B_all)
+
+# Plot 2D
+_, ax = plt.subplots(figsize=(12, 12))
+Plotter.plot_trajectory(ax, x_all)
+Plotter.plot_observed_ball_trajectory(ax, z_all)
+Plotter.plot_filtered_trajectory(ax, b_all)
+
 # Plot 3D
 fig_3D = plt.figure(figsize=(12, 8))
 ax_3D = fig_3D.add_subplot(111, projection='3d')
 Plotter.plot_trajectory_3D(ax_3D, model.x.repeated(X_all))
+
+
+# ------------------- Optic Acceleration Cancellation ---------------------- #
+n = len(x_all[:])
+oac = []
+for k in range(n):
+    x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
+    x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
+    r_bc_xy = ca.norm_2(x_b - x_c)
+    z_b = x_all[k, 'z_b']
+    tan_phi = ca.arctan2(z_b, r_bc_xy)
+    oac.append(tan_phi)
+
+# Plot 2D
+t_all = np.linspace(0, (n-1)*dt, n)
+_, ax = plt.subplots(figsize=(8, 8))
+ax.plot(t_all, oac)
+ax.grid(True)
+
+
+# ----------------------- Constant Bearing Angle --------------------------- #
+cba = []
+for k in range(n):
+    x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
+    x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
+    r_cb = x_b - x_c
+    r_cb_unit = r_cb / ca.norm_2(r_cb)
+    cba.append(r_cb_unit[0])  # cos of the angle with x-axis
+
+# Plot 2D
+_, ax = plt.subplots(figsize=(8, 8))
+ax.plot(t_all, cba)
+ax.grid(True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
