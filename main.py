@@ -42,11 +42,11 @@ S0 = ca.diagcat([1, 1, 1, 1, 1, 1,
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.2
+dt = 0.05
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
-n_delay = 2
+n_delay = 6
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
@@ -211,8 +211,13 @@ while model.n != 0:
                               model_p.b(B_all[:, k+1])['S'])
     k += 1
 
+# Cast simulation results for ease of use
+x_all = model.x.repeated(X_all)
+z_all = model.z.repeated(Z_all)
+b_all = model.b.repeated(B_all)
 
-# ----------------------------- Plotting ----------------------------------- #
+
+# ---------------------- Step-by-step plotting ----------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 
 # Appearance
@@ -267,10 +272,6 @@ for k, _ in enumerate(EB_all):
 
     # Advance time
     head += 1
-
-x_all = model.x.repeated(X_all)
-z_all = model.z.repeated(Z_all)
-b_all = model.b.repeated(B_all)
 
 
 # -------------------------- Plot full simulation -------------------------- #
