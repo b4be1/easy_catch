@@ -133,7 +133,7 @@ class Planner:
               # Warm start
               'warm_start_init_point':      'yes',
               # Termination
-              'max_iter':                   200,
+              'max_iter':                   300,
               'tol':                        1e-3,
               'constr_viol_tol':            1e-3,
               'compl_inf_tol':              1e-3,

@@ -25,8 +25,8 @@ vx_b0 = 10
 vy_b0 = 10
 vz_b0 = 15
 
-x_c0 = 25
-y_c0 = 15
+x_c0 = 10
+y_c0 = 25
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
@@ -42,13 +42,13 @@ S0 = ca.diagcat([1, 1, 1, 1, 1, 1,
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.05
+dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
-n_delay = 6
+n_delay = 2
 # System noise matrix
-M = ca.DMatrix.eye(m0.size()) * 1e-3
+M = ca.DMatrix.eye(m0.size()) * 1e-2
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
 N_min = 1e-2  # when looking directly at the ball
@@ -58,7 +58,7 @@ w_cl = 1e2
 # Running cost on facing the ball: w_c * face_the_ball
 w_c = 0
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1, 1, 1, 1e-2])
+R = 1e-1 * ca.diagcat([1e1, 1, 1, 1e-2])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e2
 # Running cost of uncertainty: w_S * tr(S)
@@ -102,7 +102,7 @@ Plotter.plot_trajectory_3D(ax_3D, x_all)
 #                           Belief space planning
 # ============================================================================
 # Find optimal controls
-plan = Planner.create_belief_plan(model, warm_start=False,
+plan = Planner.create_belief_plan(model, warm_start=True,
                                   x0=plan, lam_x0=lam_x, lam_g0=lam_g)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
@@ -185,8 +185,9 @@ while model.n != 0:
         break
 
     # Planner: plan for model_p.n time steps
-    plan = Planner.create_plan(model_p)
-    belief_plan = Planner.create_belief_plan(model_p, plan)
+    plan, lam_x, lam_g = Planner.create_plan(model_p)
+    belief_plan = Planner.create_belief_plan(model_p, warm_start=True,
+                                    x0=plan, lam_x0=lam_x, lam_g0=lam_g)
     u_all = model_p.u.repeated(ca.horzcat(belief_plan['U']))
 
     # Simulator: simulate ebelief trajectory for plotting
@@ -287,8 +288,9 @@ ax_3D = fig_3D.add_subplot(111, projection='3d')
 Plotter.plot_trajectory_3D(ax_3D, model.x.repeated(X_all))
 
 
-# ------------------- Optic Acceleration Cancellation ---------------------- #
+# ------------------- Optic acceleration cancellation ---------------------- #
 n = len(x_all[:])
+n_last = 2
 oac = []
 for k in range(n):
     x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
@@ -298,14 +300,12 @@ for k in range(n):
     tan_phi = ca.arctan2(z_b, r_bc_xy)
     oac.append(tan_phi)
 
-# Plot 2D
+# Fit a line for OAC
 t_all = np.linspace(0, (n-1)*dt, n)
-_, ax = plt.subplots(figsize=(8, 8))
-ax.plot(t_all, oac)
-ax.grid(True)
+fit_oac = np.polyfit(t_all[:-n_last], oac[:-n_last], 1)
+fit_oac_fn = np.poly1d(fit_oac)
 
-
-# ----------------------- Constant Bearing Angle --------------------------- #
+# ----------------------- Constant bearing angle --------------------------- #
 cba = []
 for k in range(n):
     x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
@@ -314,15 +314,35 @@ for k in range(n):
     r_cb_unit = r_cb / ca.norm_2(r_cb)
     cba.append(ca.arccos(r_cb_unit[0]))  # cos of the angle with x-axis
 
+# Fit a const for CBA
+fit_cba = np.polyfit(t_all[:-n_last], cba[:-n_last], 0)
+fit_cba_fn = np.poly1d(fit_cba)
+
+# --------------------------- Plot OAC and CBA ----------------------------- #
 # Plot 2D
-_, ax = plt.subplots(figsize=(8, 8))
-ax.plot(t_all, cba)
-ax.grid(True)
+fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+ax[0].plot(t_all, oac, label='$\\tan\\alpha$')
+ax[0].plot(t_all, fit_oac_fn(t_all), '--k', label='linear fit')
+ax[0].set_title('Optic acceleration cancellation')
+ax[0].set_xlabel('time, sec')
+ax[0].set_ylabel('$\\tan \\alpha$')
+ax[0].grid(True)
+ax[0].legend(loc='upper left')
+
+# Plot 2D
+ax[1].plot(t_all, cba, label='bearing angle')
+ax[1].plot(t_all, fit_cba_fn(t_all), '--k', label='constant fit')
+ax[1].set_title('Constant bearing angle')
+ax[1].set_xlabel('time, sec')
+ax[1].set_ylabel('bearing angle w.r.t. x-axis')
+ax[1].grid(True)
+ax[1].legend(loc='lower left')
+fig.tight_layout()
 
 
-# ========================================================================
+# ============================================================================
 #                  Save/load trajectory to/from a csv-file
-# ========================================================================
+# ============================================================================
 def save_trajectory(x_all, filename):
     with open(filename, 'wb') as f:
         writer = csv.writer(f)
@@ -337,7 +357,6 @@ def load_trajectory(model, filename):
         for row in reader:
             x_all.append(row)
     return model.x.repeated(ca.DMatrix(np.array(x_all, dtype=np.float64)).T)
-
 
 
 
