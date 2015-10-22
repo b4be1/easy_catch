@@ -1,6 +1,7 @@
 from __future__ import division
 
 import casadi as ca
+from planner import Planner
 
 __author__ = 'belousov'
 
@@ -62,8 +63,68 @@ class Simulator:
         eb_all = model.eb.repeated(ca.horzcat(eb_all))
         return eb_all
 
+    # ========================================================================
+    #                       Model predictive control
+    # ========================================================================
+    @classmethod
+    def mpc(cls, model, model_p):
+        # cls: simulate first n_delay time-steps with zero controls
+        u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
+        x_all = cls.simulate_trajectory(model, u_all)
+        z_all = cls.simulate_observed_trajectory(model, x_all)
+        b_all = cls.filter_observed_trajectory(model, z_all, u_all)
 
+        # Store simulation results
+        X_all = x_all.cast()
+        Z_all = z_all.cast()
+        U_all = u_all.cast()
+        B_all = b_all.cast()
 
+        # Advance time
+        model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
+
+        # Iterate until the ball hits the ground
+        EB_all = []
+        k = 0  # pointer to current catcher observation (= now - n_delay)
+        while model.n != 0:
+            # Reaction delay compensation
+            eb_all_head = cls.simulate_eb_trajectory(model_p,
+                            model_p.u.repeated(U_all[:, k:k+model_p.n_delay]))
+            model_p.set_initial_state(eb_all_head[-1, 'm'],
+                                eb_all_head[-1, 'm'],
+                                eb_all_head[-1, 'L'] + eb_all_head[-1, 'S'])
+            if model_p.n == 0:
+                break
+
+            # Planner: plan for model_p.n time steps
+            plan, lam_x, lam_g = Planner.create_plan(model_p)
+            belief_plan = Planner.create_belief_plan(model_p, warm_start=True,
+                                        x0=plan, lam_x0=lam_x, lam_g0=lam_g)
+            u_all = model_p.u.repeated(ca.horzcat(belief_plan['U']))
+
+            # cls: simulate ebelief trajectory for plotting
+            eb_all_tail = cls.simulate_eb_trajectory(model_p, u_all)
+
+            # cls: execute the first action
+            x_all = cls.simulate_trajectory(model, [u_all[0]])
+            z_all = cls.simulate_observed_trajectory(model, x_all)
+            b_all = cls.filter_observed_trajectory(model,
+                                                         z_all, [u_all[0]])
+
+            # Save simulation results
+            X_all.appendColumns(x_all.cast()[:, 1:])
+            Z_all.appendColumns(z_all.cast()[:, 1:])
+            U_all.appendColumns(u_all.cast()[:, 0])
+            B_all.appendColumns(b_all.cast()[:, 1:])
+            EB_all.append([eb_all_head, eb_all_tail])
+
+            # Advance time
+            model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
+            model_p.set_initial_state(model_p.b(B_all[:, k+1])['m'],
+                                      model_p.b(B_all[:, k+1])['m'],
+                                      model_p.b(B_all[:, k+1])['S'])
+            k += 1
+        return X_all, Z_all, B_all, EB_all
 
 
 

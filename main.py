@@ -156,123 +156,20 @@ plt.show()
 model = new_model()
 model_p = new_model()
 
-# Simulator: simulate first n_delay time-steps with zero controls
-u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
-x_all = Simulator.simulate_trajectory(model, u_all)
-z_all = Simulator.simulate_observed_trajectory(model, x_all)
-b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
-
-# Store simulation results
-X_all = x_all.cast()
-Z_all = z_all.cast()
-U_all = u_all.cast()
-B_all = b_all.cast()
-
-# Advance time
-model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
-
-# Iterate until the ball hits the ground
-EB_all = []
-k = 0  # pointer to current catcher observation (= now - n_delay)
-while model.n != 0:
-    # Reaction delay compensation
-    eb_all_head = Simulator.simulate_eb_trajectory(model_p,
-                            model_p.u.repeated(U_all[:, k:k+model_p.n_delay]))
-    model_p.set_initial_state(eb_all_head[-1, 'm'],
-                              eb_all_head[-1, 'm'],
-                              eb_all_head[-1, 'L'] + eb_all_head[-1, 'S'])
-    if model_p.n == 0:
-        break
-
-    # Planner: plan for model_p.n time steps
-    plan, lam_x, lam_g = Planner.create_plan(model_p)
-    belief_plan = Planner.create_belief_plan(model_p, warm_start=True,
-                                    x0=plan, lam_x0=lam_x, lam_g0=lam_g)
-    u_all = model_p.u.repeated(ca.horzcat(belief_plan['U']))
-
-    # Simulator: simulate ebelief trajectory for plotting
-    eb_all_tail = Simulator.simulate_eb_trajectory(model_p, u_all)
-
-    # Simulator: execute the first action
-    x_all = Simulator.simulate_trajectory(model, [u_all[0]])
-    z_all = Simulator.simulate_observed_trajectory(model, x_all)
-    b_all = Simulator.filter_observed_trajectory(model, z_all, [u_all[0]])
-
-    # Save simulation results
-    X_all.appendColumns(x_all.cast()[:, 1:])  # 0'th state is already included
-    Z_all.appendColumns(z_all.cast()[:, 1:])
-    U_all.appendColumns(u_all.cast()[:, 0])   # save only the first control
-    B_all.appendColumns(b_all.cast()[:, 1:])
-    EB_all.append([eb_all_head, eb_all_tail])
-
-    # Advance time
-    model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
-    model_p.set_initial_state(model_p.b(B_all[:, k+1])['m'],
-                              model_p.b(B_all[:, k+1])['m'],
-                              model_p.b(B_all[:, k+1])['S'])
-    k += 1
+# Run MPC
+X_all, Z_all, B_all, EB_all = Simulator.mpc(model, model_p)
 
 # Cast simulation results for ease of use
 x_all = model.x.repeated(X_all)
 z_all = model.z.repeated(Z_all)
 b_all = model.b.repeated(B_all)
 
-
 # ---------------------- Step-by-step plotting ----------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
-
-# Appearance
-axes[0].set_title("Model predictive control, simulation")
-axes[1].set_title("Model predictive control, planning")
-for ax in axes:
-    ax.set_xlim(-10, 40)
-    ax.set_ylim(-10, 40)
-    ax.grid(True)
-    ax.set_aspect('equal')
-
-# Plot the first piece
-head = 0
-x_piece = model.x.repeated(X_all[:, head:head+n_delay+1])
-z_piece = model.z.repeated(Z_all[:, head:head+n_delay+1])
-b_piece = model.b.repeated(B_all[:, head:head+n_delay+1])
-Plotter.plot_trajectory(axes[0], x_piece)
-Plotter.plot_observed_ball_trajectory(axes[0], z_piece)
-Plotter.plot_filtered_trajectory(axes[0], b_piece)
-fig.canvas.draw()
-
-# Advance time
-head += n_delay
-
-# Plot the rest
-for k, _ in enumerate(EB_all):
-    # Clear old plan
-    axes[1].clear()
-    axes[1].set_title("Model predictive control, planning")
-    ax.set_xlim(-10, 40)
-    ax.set_ylim(-10, 40)
-    axes[1].grid(True)
-    axes[1].set_aspect('equal')
-
-    # Show new plan
-    plt.waitforbuttonpress()
-    Plotter.plot_plan(axes[1], EB_all[k][0])
-    fig.canvas.draw()
-    plt.waitforbuttonpress()
-    Plotter.plot_plan(axes[1], EB_all[k][1])
-    fig.canvas.draw()
-
-    # Simulate one step
-    x_piece = model.x.repeated(X_all[:, head:head+2])
-    z_piece = model.z.repeated(Z_all[:, head:head+2])
-    b_piece = model.b.repeated(B_all[:, head:head+2])
-    plt.waitforbuttonpress()
-    Plotter.plot_trajectory(axes[0], x_piece)
-    Plotter.plot_observed_ball_trajectory(axes[0], z_piece)
-    Plotter.plot_filtered_trajectory(axes[0], b_piece)
-    fig.canvas.draw()
-
-    # Advance time
-    head += 1
+xlim = (-10, 40)
+ylim = (-10, 40)
+Plotter.plot_mpc(fig, axes, xlim, ylim,
+                 model, X_all, Z_all, B_all, EB_all)
 
 
 # -------------------------- Plot full simulation -------------------------- #

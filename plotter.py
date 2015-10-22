@@ -1,5 +1,6 @@
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from matplotlib.patches import Patch, Ellipse
+import matplotlib.pyplot as plt
 
 import numpy as np
 import casadi as ca
@@ -168,6 +169,63 @@ class Plotter:
             ax.add_patch(e)
         return [Patch(color='green', alpha=0.1, label=name)]
 
+    # --------------------- Model predictive control ----------------------- #
+    @classmethod
+    def plot_mpc(cls, fig, axes, xlim, ylim,
+                 model, X_all, Z_all, B_all, EB_all):
+        n_delay = model.n_delay
+        # Appearance
+        axes[0].set_title("Model predictive control, simulation")
+        axes[1].set_title("Model predictive control, planning")
+        for ax in axes:
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+            ax.grid(True)
+            ax.set_aspect('equal')
+
+        # Plot the first piece
+        head = 0
+        x_piece = model.x.repeated(X_all[:, head:head+n_delay+1])
+        z_piece = model.z.repeated(Z_all[:, head:head+n_delay+1])
+        b_piece = model.b.repeated(B_all[:, head:head+n_delay+1])
+        cls.plot_trajectory(axes[0], x_piece)
+        cls.plot_observed_ball_trajectory(axes[0], z_piece)
+        cls.plot_filtered_trajectory(axes[0], b_piece)
+        fig.canvas.draw()
+
+        # Advance time
+        head += n_delay
+
+        # Plot the rest
+        for k, _ in enumerate(EB_all):
+            # Clear old plan
+            axes[1].clear()
+            axes[1].set_title("Model predictive control, planning")
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+            axes[1].grid(True)
+            axes[1].set_aspect('equal')
+
+            # Show new plan
+            plt.waitforbuttonpress()
+            cls.plot_plan(axes[1], EB_all[k][0])
+            fig.canvas.draw()
+            plt.waitforbuttonpress()
+            cls.plot_plan(axes[1], EB_all[k][1])
+            fig.canvas.draw()
+
+            # Simulate one step
+            x_piece = model.x.repeated(X_all[:, head:head+2])
+            z_piece = model.z.repeated(Z_all[:, head:head+2])
+            b_piece = model.b.repeated(B_all[:, head:head+2])
+            plt.waitforbuttonpress()
+            cls.plot_trajectory(axes[0], x_piece)
+            cls.plot_observed_ball_trajectory(axes[0], z_piece)
+            cls.plot_filtered_trajectory(axes[0], b_piece)
+            fig.canvas.draw()
+
+            # Advance time
+            head += 1
 
     # ========================================================================
     #                               3D
