@@ -23,7 +23,7 @@ __author__ = 'belousov'
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
 vy_b0 = 10
-vz_b0 = 15
+vz_b0 = 10
 
 x_c0 = 25
 y_c0 = 15
@@ -37,7 +37,7 @@ psi0 = 0
 m0 = ca.DMatrix([x_b0, y_b0, z_b0, vx_b0, vy_b0, vz_b0,
                  x_c0, y_c0, vx_c0, vy_c0, phi0, psi0])
 # Initial covariance
-S0 = ca.diagcat([1, 1, 1, 1, 1, 1,
+S0 = ca.diagcat([1, 1, 0, 1, 1, 1,
                  0.5, 0.5, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
@@ -46,19 +46,17 @@ dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
-n_delay = 2
+n_delay = 3
 # System noise matrix
-M = ca.DMatrix.eye(m0.size()) * 1e-2
+M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
 N_min = 1e-2  # when looking directly at the ball
 N_max = 1e1   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
-w_cl = 1e3
-# Running cost on facing the ball: w_c * face_the_ball
-w_c = 0
+w_cl = 1e2
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1e1, 1e1, 1, 1e-1])
+R = 1e-1 * ca.diagcat([1e1, 1, 1, 1e-1])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e2
 # Running cost of uncertainty: w_S * tr(S)
@@ -71,7 +69,7 @@ psi_max = 0.8 * ca.pi/2
 # Model creation wrapper
 def new_model():
     return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
-                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
+                 (w_cl, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
 
 # Create model
 model = new_model()
@@ -170,8 +168,8 @@ b_all = model.b.repeated(B_all)
 # ---------------------- Step-by-step plotting ----------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 fig.tight_layout()
-xlim = (-10, 40)
-ylim = (-10, 40)
+xlim = (-5, 25)
+ylim = (-5, 25)
 Plotter.plot_mpc(fig, axes, xlim, ylim,
                  model, X_all, Z_all, B_all, EB_all)
 

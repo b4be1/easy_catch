@@ -18,7 +18,7 @@ class Model:
     mu = 10.0 / 12
 
     def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
-                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max)):
+                 (w_cl, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -80,7 +80,7 @@ class Model:
 
         # Cost functions: final and running
         self.cl = self._create_final_cost(w_cl)
-        self.c = self._create_running_cost(w_c, R)
+        self.c = self._create_running_cost(R)
 
         # Cost functions: final and running uncertainty
         self.cSl = self._create_final_uncertainty_cost(w_Sl)
@@ -401,27 +401,14 @@ class Model:
         x_c = self.x[ca.veccat, ['x_c', 'y_c']]
         dx_bc = x_b - x_c
 
-        # Final velocity
-        # v_b = self.x[ca.veccat, ['vx_b', 'vy_b']]
-        # v_c = self.x[ca.veccat, ['vx_c', 'vy_c']]
-        # dv_bc = v_b - v_c
-
-        # Face the ball
-        # d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
-        # r = self.x[ca.veccat, ['vx_b', 'vy_b']]
-
         final_cost = 0.5 * ca.mul(dx_bc.T, dx_bc)
-        # + ca.mul(d.T, r)
         op = {'input_scheme': ['x'],
               'output_scheme': ['cl']}
         return ca.SXFunction('Final cost', [self.x],
                              [w_cl * final_cost], op)
 
-    def _create_running_cost(self, w_c, R):
-        # d = ca.veccat([ca.cos(self.x['phi']), ca.sin(self.x['phi'])])
-        # r = self.x[ca.veccat, ['vx_b', 'vy_b']]
+    def _create_running_cost(self, R):
         running_cost = 0.5 * ca.mul([self.u.cat.T, R * self.dt, self.u.cat])
-        # + w_c * ca.mul(d.T, r) * self.dt
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['c']}
         return ca.SXFunction('Running cost', [self.x, self.u],
