@@ -465,6 +465,10 @@ class Model:
         lbx['X', :, 'psi'] = 0
         # psi < pi/2
         ubx['X', :, 'psi'] = self.psi_max
+        # phi >= 0
+        # lbx['X', :, 'phi'] = 0
+        # phi < 2 * pi
+        # ubx['X', :, 'phi'] = 2 * ca.pi
 
     def _set_constraint(self, V, k):
         return V['U', k, 'F_c'] -\

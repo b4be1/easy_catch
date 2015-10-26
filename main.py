@@ -55,18 +55,18 @@ M[-8:, -8:] = ca.DMatrix.eye(8) * 1e-5  # catcher's dynamics is less noisy
 N_min = 1e-2  # when looking directly at the ball
 N_max = 1e1   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
-w_cl = 1e2
+w_cl = 1e3
 # Running cost on facing the ball: w_c * face_the_ball
 w_c = 0
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1e1, 1, 1, 1e-1])
+R = 1e-1 * ca.diagcat([1e1, 1e-1, 1e-1, 1])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e2
 # Running cost of uncertainty: w_S * tr(S)
 w_S = 1e1
 # Control limits
 F_c1, F_c2 = 7.5, 2.5
-F_max = 20
+F_max = 10
 psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
@@ -167,6 +167,7 @@ b_all = model.b.repeated(B_all)
 
 # ---------------------- Step-by-step plotting ----------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+fig.tight_layout()
 xlim = (-10, 40)
 ylim = (-10, 40)
 Plotter.plot_mpc(fig, axes, xlim, ylim,
