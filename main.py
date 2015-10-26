@@ -23,7 +23,7 @@ __author__ = 'belousov'
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
 vy_b0 = 10
-vz_b0 = 10
+vz_b0 = 20
 
 x_c0 = 25
 y_c0 = 15
