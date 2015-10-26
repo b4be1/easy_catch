@@ -227,8 +227,61 @@ class Plotter:
             # Advance time
             head += 1
 
+    # --------------------------- Heuristics ------------------------------- #
+    @staticmethod
+    def plot_heuristics(model, x_all):
+        n = len(x_all[:])
+        n_last = 2
+        oac = []
+        for k in range(n):
+            x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
+            x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
+            r_bc_xy = ca.norm_2(x_b - x_c)
+            z_b = x_all[k, 'z_b']
+            tan_phi = ca.arctan2(z_b, r_bc_xy)
+            oac.append(tan_phi)
+
+        # Fit a line for OAC
+        t_all = np.linspace(0, (n - 1) * model.dt, n)
+        fit_oac = np.polyfit(t_all[:-n_last], oac[:-n_last], 1)
+        fit_oac_fn = np.poly1d(fit_oac)
+
+        # ------------------- Constant bearing angle ----------------------- #
+        cba = []
+        for k in range(n):
+            x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
+            x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
+            r_cb = x_b - x_c
+            r_cb_unit = r_cb / ca.norm_2(r_cb)
+            cba.append(ca.arccos(r_cb_unit[0]))  # cos of the angle with xaxis
+
+        # Fit a const for CBA
+        fit_cba = np.polyfit(t_all[:-n_last], cba[:-n_last], 0)
+        fit_cba_fn = np.poly1d(fit_cba)
+
+        # ----------------------- Plot OAC and CBA ------------------------- #
+        # Plot 2D
+        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+        ax[0].plot(t_all, oac, label='$\\tan\\alpha$')
+        ax[0].plot(t_all, fit_oac_fn(t_all), '--k', label='linear fit')
+        ax[0].set_title('Optic acceleration cancellation')
+        ax[0].set_xlabel('time, sec')
+        ax[0].set_ylabel('$\\tan \\alpha$')
+        ax[0].grid(True)
+        ax[0].legend(loc='upper left')
+
+        # Plot 2D
+        ax[1].plot(t_all, cba, label='bearing angle')
+        ax[1].plot(t_all, fit_cba_fn(t_all), '--k', label='constant fit')
+        ax[1].set_title('Constant bearing angle')
+        ax[1].set_xlabel('time, sec')
+        ax[1].set_ylabel('bearing angle w.r.t. x-axis')
+        ax[1].grid(True)
+        ax[1].legend(loc='lower left')
+        fig.tight_layout()
+
     # ========================================================================
-    #                               3D
+    #                                3D
     # ========================================================================
     @classmethod
     def plot_trajectory_3D(cls, ax, x_all):

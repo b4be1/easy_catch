@@ -25,20 +25,21 @@ vx_b0 = 10
 vy_b0 = 10
 vz_b0 = 15
 
-x_c0 = 10
-y_c0 = 25
+x_c0 = 25
+y_c0 = 15
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
     phi0 += 2 * ca.pi
 psi0 = 0
+w_phi0 = w_psi0 = 0
 
 # Initial mean
 m0 = ca.DMatrix([x_b0, y_b0, z_b0, vx_b0, vy_b0, vz_b0,
-                 x_c0, y_c0, vx_c0, vy_c0, phi0, psi0])
+                 x_c0, y_c0, vx_c0, vy_c0, phi0, psi0, w_phi0, w_psi0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 1, 1, 1, 1,
-                 0.5, 0.5, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
+                 0.5, 0.5, 0.5, 0.5, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
@@ -49,7 +50,7 @@ n_rk = 1
 n_delay = 2
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-2
-M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
+M[-8:, -8:] = ca.DMatrix.eye(8) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
 N_min = 1e-2  # when looking directly at the ball
 N_max = 1e1   # when the ball is 90 degrees from the gaze direction
@@ -58,20 +59,20 @@ w_cl = 1e2
 # Running cost on facing the ball: w_c * face_the_ball
 w_c = 0
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1e1, 1, 1, 1e-2])
+R = 1e-1 * ca.diagcat([1e1, 1, 1, 1e-1])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e2
 # Running cost of uncertainty: w_S * tr(S)
 w_S = 1e1
 # Control limits
 F_c1, F_c2 = 7.5, 2.5
-w_max = 4 * ca.pi
+F_max = 20
 psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
     return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
-                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
+                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, F_max, psi_max))
 
 # Create model
 model = new_model()
@@ -89,11 +90,11 @@ u_all = plan.prefix['U']
 eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
 # Plot 2D
-_, ax = plt.subplots(figsize=(12, 12))
+_, ax = plt.subplots(figsize=(10, 10))
 Plotter.plot_plan(ax, eb_all)
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(12, 8))
+fig_3D = plt.figure(figsize=(10, 10))
 ax_3D = fig_3D.add_subplot(111, projection='3d')
 Plotter.plot_trajectory_3D(ax_3D, x_all)
 
@@ -111,11 +112,11 @@ u_all = plan.prefix['U']
 eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
 # Plot 2D
-_, ax = plt.subplots(figsize=(12, 12))
+_, ax = plt.subplots(figsize=(10, 10))
 Plotter.plot_plan(ax, eb_all)
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(12, 8))
+fig_3D = plt.figure(figsize=(10, 10))
 ax_3D = fig_3D.add_subplot(111, projection='3d')
 Plotter.plot_trajectory_3D(ax_3D, x_all)
 
@@ -141,7 +142,7 @@ Plotter.plot_observed_ball_trajectory(ax, z_all)
 Plotter.plot_filtered_trajectory(ax, b_all)
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(12, 8))
+fig_3D = plt.figure(figsize=(10, 10))
 ax_3D = fig_3D.add_subplot(111, projection='3d')
 Plotter.plot_trajectory_3D(ax_3D, x_all)
 
@@ -174,67 +175,19 @@ Plotter.plot_mpc(fig, axes, xlim, ylim,
 
 # -------------------------- Plot full simulation -------------------------- #
 # Plot 2D
-_, ax = plt.subplots(figsize=(12, 12))
+_, ax = plt.subplots(figsize=(10, 10))
 Plotter.plot_trajectory(ax, x_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
 Plotter.plot_filtered_trajectory(ax, b_all)
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(12, 8))
+fig_3D = plt.figure(figsize=(10, 10))
 ax_3D = fig_3D.add_subplot(111, projection='3d')
 Plotter.plot_trajectory_3D(ax_3D, model.x.repeated(X_all))
 
 
 # ------------------- Optic acceleration cancellation ---------------------- #
-n = len(x_all[:])
-n_last = 2
-oac = []
-for k in range(n):
-    x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
-    x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
-    r_bc_xy = ca.norm_2(x_b - x_c)
-    z_b = x_all[k, 'z_b']
-    tan_phi = ca.arctan2(z_b, r_bc_xy)
-    oac.append(tan_phi)
-
-# Fit a line for OAC
-t_all = np.linspace(0, (n-1)*dt, n)
-fit_oac = np.polyfit(t_all[:-n_last], oac[:-n_last], 1)
-fit_oac_fn = np.poly1d(fit_oac)
-
-# ----------------------- Constant bearing angle --------------------------- #
-cba = []
-for k in range(n):
-    x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
-    x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
-    r_cb = x_b - x_c
-    r_cb_unit = r_cb / ca.norm_2(r_cb)
-    cba.append(ca.arccos(r_cb_unit[0]))  # cos of the angle with x-axis
-
-# Fit a const for CBA
-fit_cba = np.polyfit(t_all[:-n_last], cba[:-n_last], 0)
-fit_cba_fn = np.poly1d(fit_cba)
-
-# --------------------------- Plot OAC and CBA ----------------------------- #
-# Plot 2D
-fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-ax[0].plot(t_all, oac, label='$\\tan\\alpha$')
-ax[0].plot(t_all, fit_oac_fn(t_all), '--k', label='linear fit')
-ax[0].set_title('Optic acceleration cancellation')
-ax[0].set_xlabel('time, sec')
-ax[0].set_ylabel('$\\tan \\alpha$')
-ax[0].grid(True)
-ax[0].legend(loc='upper left')
-
-# Plot 2D
-ax[1].plot(t_all, cba, label='bearing angle')
-ax[1].plot(t_all, fit_cba_fn(t_all), '--k', label='constant fit')
-ax[1].set_title('Constant bearing angle')
-ax[1].set_xlabel('time, sec')
-ax[1].set_ylabel('bearing angle w.r.t. x-axis')
-ax[1].grid(True)
-ax[1].legend(loc='lower left')
-fig.tight_layout()
+Plotter.plot_heuristics(model, x_all)
 
 
 # ============================================================================

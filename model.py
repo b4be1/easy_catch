@@ -18,7 +18,7 @@ class Model:
     mu = 10.0 / 12
 
     def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
-                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max)):
+                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, F_max, psi_max)):
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -32,9 +32,9 @@ class Model:
         self.x = cat.struct_symSX(['x_b', 'y_b', 'z_b',
                                    'vx_b', 'vy_b', 'vz_b',
                                    'x_c', 'y_c', 'vx_c', 'vy_c',
-                                   'phi', 'psi'])
+                                   'phi', 'psi', 'w_phi', 'w_psi'])
         # Control u
-        self.u = cat.struct_symSX(['F_c', 'w_phi', 'w_psi', 'theta'])
+        self.u = cat.struct_symSX(['F_c', 'F_phi', 'F_psi', 'theta'])
 
         # Observation z
         self.z = cat.struct_symSX(['x_b', 'y_b', 'z_b',
@@ -88,7 +88,7 @@ class Model:
 
         # Control limits
         self.F_c1, self.F_c2,\
-        self.w_max, self.psi_max = F_c1, F_c2, w_max, psi_max
+        self.F_max, self.psi_max = F_c1, F_c2, F_max, psi_max
 
         # Number of simulation steps till the ball hits the ground
         self.n = self._estimate_simulation_duration()
@@ -174,8 +174,8 @@ class Model:
     def _create_continuous_dynamics(self):
         # Unpack arguments
         [x_b, y_b, z_b, vx_b, vy_b, vz_b,
-         x_c, y_c, vx_c, vy_c, phi, psi] = self.x[...]
-        [F_c, w_phi, w_psi, theta] = self.u[...]
+         x_c, y_c, vx_c, vy_c, phi, psi, w_phi, w_psi] = self.x[...]
+        [F_c, F_phi, F_psi, theta] = self.u[...]
 
         # Define the governing ordinary differential equation (ODE)
         rhs = cat.struct_SX(self.x)
@@ -191,6 +191,8 @@ class Model:
         rhs['vy_c'] = F_c * ca.sin(phi + theta) - self.mu * vy_c
         rhs['phi'] = w_phi
         rhs['psi'] = w_psi
+        rhs['w_phi'] = F_phi
+        rhs['w_psi'] = F_psi
 
         op = {'input_scheme': ['x', 'u'],
               'output_scheme': ['x_dot']}
@@ -443,15 +445,15 @@ class Model:
         # F_c >= 0
         lbx['U', :, 'F_c'] = 0
 
-        # w_phi >= -w_max
-        lbx['U', :, 'w_phi'] = -self.w_max
-        # w_phi <= w_max
-        ubx['U', :, 'w_phi'] = self.w_max
+        # F_phi >= -F_max
+        lbx['U', :, 'F_phi'] = -self.F_max
+        # F_phi <= F_max
+        ubx['U', :, 'F_phi'] = self.F_max
 
-        # w_psi >= -w_max
-        lbx['U', :, 'w_psi'] = -self.w_max
-        # w_psi <= w_max
-        ubx['U', :, 'w_psi'] = self.w_max
+        # F_psi >= -F_max
+        lbx['U', :, 'F_psi'] = -self.F_max
+        # F_psi <= F_max
+        ubx['U', :, 'F_psi'] = self.F_max
 
         # theta >= -pi
         lbx['U', :, 'theta'] = -ca.pi
