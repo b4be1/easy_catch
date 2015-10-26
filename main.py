@@ -32,14 +32,13 @@ phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
     phi0 += 2 * ca.pi
 psi0 = 0
-w_phi0 = w_psi0 = 0
 
 # Initial mean
 m0 = ca.DMatrix([x_b0, y_b0, z_b0, vx_b0, vy_b0, vz_b0,
-                 x_c0, y_c0, vx_c0, vy_c0, phi0, psi0, w_phi0, w_psi0])
+                 x_c0, y_c0, vx_c0, vy_c0, phi0, psi0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 1, 1, 1, 1,
-                 0.5, 0.5, 0.5, 0.5, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25
+                 0.5, 0.5, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
@@ -50,7 +49,7 @@ n_rk = 1
 n_delay = 2
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-2
-M[-8:, -8:] = ca.DMatrix.eye(8) * 1e-5  # catcher's dynamics is less noisy
+M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
 N_min = 1e-2  # when looking directly at the ball
 N_max = 1e1   # when the ball is 90 degrees from the gaze direction
@@ -59,20 +58,20 @@ w_cl = 1e3
 # Running cost on facing the ball: w_c * face_the_ball
 w_c = 0
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1e1, 1e-1, 1e-1, 1])
+R = 1e-1 * ca.diagcat([1e1, 1e1, 1, 1e-1])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e2
 # Running cost of uncertainty: w_S * tr(S)
 w_S = 1e1
 # Control limits
 F_c1, F_c2 = 7.5, 2.5
-F_max = 10
+w_max = 2 * ca.pi
 psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
     return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
-                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, F_max, psi_max))
+                 (w_cl, w_c, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
 
 # Create model
 model = new_model()
@@ -90,7 +89,8 @@ u_all = plan.prefix['U']
 eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
 # Plot 2D
-_, ax = plt.subplots(figsize=(10, 10))
+fig, ax = plt.subplots(figsize=(10, 10))
+fig.tight_layout()
 Plotter.plot_plan(ax, eb_all)
 
 # Plot 3D
@@ -112,7 +112,8 @@ u_all = plan.prefix['U']
 eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
 # Plot 2D
-_, ax = plt.subplots(figsize=(10, 10))
+fig, ax = plt.subplots(figsize=(10, 10))
+fig.tight_layout()
 Plotter.plot_plan(ax, eb_all)
 
 # Plot 3D
@@ -136,7 +137,8 @@ z_all = Simulator.simulate_observed_trajectory(model, x_all)
 b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
 # Plot 2D
-_, ax = plt.subplots(figsize=(10, 10))
+fig, ax = plt.subplots(figsize=(10, 10))
+fig.tight_layout()
 Plotter.plot_trajectory(ax, x_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
 Plotter.plot_filtered_trajectory(ax, b_all)
@@ -176,7 +178,8 @@ Plotter.plot_mpc(fig, axes, xlim, ylim,
 
 # -------------------------- Plot full simulation -------------------------- #
 # Plot 2D
-_, ax = plt.subplots(figsize=(10, 10))
+fig, ax = plt.subplots(figsize=(10, 10))
+fig.tight_layout()
 Plotter.plot_trajectory(ax, x_all)
 Plotter.plot_observed_ball_trajectory(ax, z_all)
 Plotter.plot_filtered_trajectory(ax, b_all)
