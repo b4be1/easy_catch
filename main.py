@@ -195,7 +195,7 @@ ax.set_aspect('equal')
 
 
 # ------------------- Optic acceleration cancellation ---------------------- #
-Plotter.plot_heuristics(model, x_all)
+fig = Plotter.plot_heuristics(model, x_all)
 
 
 # ============================================================================

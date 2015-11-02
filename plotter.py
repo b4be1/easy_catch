@@ -287,11 +287,11 @@ class Plotter:
 
         # ----------------------- Plot OAC and CBA ------------------------- #
         # Plot 2D
-        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+        fig, ax = plt.subplots(2, 1, figsize=(6, 12))
         ax[0].plot(t_all, oac, label='$\\tan\\alpha$')
         ax[0].plot(t_all, fit_oac_fn(t_all), '--k', label='linear fit')
         ax[0].set_title('Optic acceleration cancellation')
-        ax[0].set_xlabel('time, sec')
+        # ax[0].set_xlabel('time, sec')
         ax[0].set_ylabel('$\\tan \\alpha$')
         ax[0].grid(True)
         ax[0].legend(loc='upper left')
@@ -305,6 +305,8 @@ class Plotter:
         ax[1].grid(True)
         ax[1].legend(loc='lower left')
         fig.tight_layout()
+
+        return fig
 
     # ========================================================================
     #                                3D
