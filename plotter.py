@@ -1,5 +1,6 @@
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from matplotlib.patches import Patch, Ellipse
+from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -56,11 +57,14 @@ class Plotter:
     # ---------------------------- Trajectory ------------------------------ #
     @classmethod
     def plot_trajectory(cls, ax, x_all):
-        cls._plot_trajectory('Ball trajectory', ax, x_all, ('x_b', 'y_b'))
-        cls._plot_trajectory('Catcher trajectory', ax, x_all, ('x_c', 'y_c'))
-        cls._plot_arrows('Catcher gaze', ax,
+        [catcher_handle] = cls._plot_trajectory('Catcher trajectory',
+                                       ax, x_all, ('x_c', 'y_c'))
+        [gaze_handle] = cls._plot_arrows('Catcher gaze', ax,
                          x_all[:, 'x_c'], x_all[:, 'y_c'], x_all[:, 'phi'])
+        [ball_handle] = cls._plot_trajectory('Ball trajectory',
+                                    ax, x_all, ('x_b', 'y_b'))
         ax.grid(True)
+        return [catcher_handle, gaze_handle, ball_handle]
 
     @staticmethod
     def _plot_trajectory(name, ax, x_all, (xl, yl)):
@@ -81,10 +85,15 @@ class Plotter:
     @classmethod
     def plot_filtered_trajectory(cls, ax, b_all):
         # Plot line
-        cls._plot_filtered_ball_mean('Filtered ball trajectory', ax, b_all)
+        [mean_handle] = cls._plot_filtered_ball_mean(
+            'Filtered ball trajectory', ax, b_all)
 
         # Plot ellipses
-        cls._plot_filtered_ball_cov('Filtered ball covariance', ax, b_all)
+        [cov_handle] = cls._plot_filtered_ball_cov(
+            'Filtered ball covariance', ax, b_all)
+
+        # Return handles for the legend
+        return [mean_handle, cov_handle]
 
     @staticmethod
     def _plot_filtered_ball_mean(name, ax, b_all):
@@ -100,13 +109,16 @@ class Plotter:
                                 b_all[k, 'S', ['x_b', 'y_b'], ['x_b', 'y_b']])
             e.set_color('c')
             ax.add_patch(e)
-        return [Patch(color='cyan', alpha=0.1, label=name)]
+        # return [Patch(color='cyan', alpha=0.1, label=name)]
+        return [Line2D(b_all[0, 'm', 'x_b'], b_all[0, 'm', 'y_b'],
+                       label=name, color='white', alpha=0.1,
+                       marker='o', markersize=13, markerfacecolor='cyan')]
 
     # ------------------------ Planned trajectory -------------------------- #
     @classmethod
     def plot_plan(cls, ax, eb_all):
         """Complete plan"""
-        cls._plot_plan(ax, eb_all, ('x_b', 'y_b'))
+        handles = cls._plot_plan(ax, eb_all, ('x_b', 'y_b'))
         cls._plot_plan(ax, eb_all, ('x_c', 'y_c'))
         cls._plot_arrows('Catcher gaze', ax,
                          eb_all[:, 'm', 'x_c'],
@@ -114,6 +126,9 @@ class Plotter:
                          eb_all[:, 'm', 'phi'])
         # Appearance
         ax.grid(True)
+
+        # Return handles
+        return handles
 
     @classmethod
     def _plot_plan(cls, ax, eb_all, (xl, yl)):
@@ -148,7 +163,10 @@ class Plotter:
             e.set_color('r')
             e.set_alpha(0.4)
             ax.add_patch(e)
-        return [Patch(color='red', alpha=0.4, label=name)]
+        return [Line2D(mus[0][0], mus[0][1],
+                       label=name, color='white',
+                       marker='o', markersize=15,
+                       markerfacecolor='white', markeredgecolor='red')]
 
     @classmethod
     def _plot_plan_L(cls, name, ax, mus, covs):
@@ -156,7 +174,10 @@ class Plotter:
         for k in range(len(mus)):
             e = cls._create_ellipse(mus[k], covs[k])
             ax.add_patch(e)
-        return [Patch(color='yellow', alpha=0.1, label=name)]
+        return [Line2D(mus[0][0], mus[0][1],
+                       label=name, color='white', alpha=0.3,
+                       marker='o', markersize=15,
+                       markerfacecolor='yellow', markeredgecolor='yellow')]
 
     @classmethod
     def _plot_plan_SL(cls, name, ax, mus, covs, lcovs):
@@ -167,7 +188,10 @@ class Plotter:
             e.set_color('g')
             e.set_alpha(0.1)
             ax.add_patch(e)
-        return [Patch(color='green', alpha=0.1, label=name)]
+        return [Line2D(mus[0][0], mus[0][1],
+                       label=name, color='white',
+                       marker='o', markersize=15,
+                       markerfacecolor='white', markeredgecolor='green')]
 
     # --------------------- Model predictive control ----------------------- #
     @classmethod
@@ -188,9 +212,10 @@ class Plotter:
         x_piece = model.x.repeated(X_all[:, head:head+n_delay+1])
         z_piece = model.z.repeated(Z_all[:, head:head+n_delay+1])
         b_piece = model.b.repeated(B_all[:, head:head+n_delay+1])
-        cls.plot_trajectory(axes[0], x_piece)
-        cls.plot_observed_ball_trajectory(axes[0], z_piece)
-        cls.plot_filtered_trajectory(axes[0], b_piece)
+        handles = cls.plot_trajectory(axes[0], x_piece)
+        handles.extend(cls.plot_observed_ball_trajectory(axes[0], z_piece))
+        handles.extend(cls.plot_filtered_trajectory(axes[0], b_piece))
+        axes[0].legend(handles=handles, loc='upper left')
         fig.canvas.draw()
 
         # Advance time
@@ -208,7 +233,8 @@ class Plotter:
 
             # Show new plan
             plt.waitforbuttonpress()
-            cls.plot_plan(axes[1], EB_all[k][0])
+            handles = cls.plot_plan(axes[1], EB_all[k][0])
+            axes[1].legend(handles=handles, loc='upper left')
             fig.canvas.draw()
             plt.waitforbuttonpress()
             cls.plot_plan(axes[1], EB_all[k][1])

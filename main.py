@@ -23,7 +23,7 @@ __author__ = 'belousov'
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
 vy_b0 = 10
-vz_b0 = 20
+vz_b0 = 10
 
 x_c0 = 25
 y_c0 = 15
@@ -42,11 +42,11 @@ S0 = ca.diagcat([1, 1, 0, 1, 1, 1,
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.1
+dt = 0.2
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
-n_delay = 3
+n_delay = 2
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
@@ -89,12 +89,13 @@ eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 # Plot 2D
 fig, ax = plt.subplots(figsize=(10, 10))
 fig.tight_layout()
-Plotter.plot_plan(ax, eb_all)
+handles = Plotter.plot_plan(ax, eb_all)
+ax.legend(handles=handles, loc='upper left')
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(10, 10))
-ax_3D = fig_3D.add_subplot(111, projection='3d')
-Plotter.plot_trajectory_3D(ax_3D, x_all)
+# fig_3D = plt.figure(figsize=(10, 10))
+# ax_3D = fig_3D.add_subplot(111, projection='3d')
+# Plotter.plot_trajectory_3D(ax_3D, x_all)
 
 
 # ============================================================================
@@ -112,12 +113,13 @@ eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 # Plot 2D
 fig, ax = plt.subplots(figsize=(10, 10))
 fig.tight_layout()
-Plotter.plot_plan(ax, eb_all)
+handles = Plotter.plot_plan(ax, eb_all)
+ax.legend(handles=handles, loc='upper left')
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(10, 10))
-ax_3D = fig_3D.add_subplot(111, projection='3d')
-Plotter.plot_trajectory_3D(ax_3D, x_all)
+# fig_3D = plt.figure(figsize=(10, 10))
+# ax_3D = fig_3D.add_subplot(111, projection='3d')
+# Plotter.plot_trajectory_3D(ax_3D, x_all)
 
 # ============================================================================
 #                   Simulate trajectory and observations
@@ -135,18 +137,18 @@ z_all = Simulator.simulate_observed_trajectory(model, x_all)
 b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
 # Plot 2D
-fig, ax = plt.subplots(figsize=(10, 10))
-fig.tight_layout()
-Plotter.plot_trajectory(ax, x_all)
-Plotter.plot_observed_ball_trajectory(ax, z_all)
-Plotter.plot_filtered_trajectory(ax, b_all)
+# fig, ax = plt.subplots(figsize=(10, 10))
+# fig.tight_layout()
+# Plotter.plot_trajectory(ax, x_all)
+# Plotter.plot_observed_ball_trajectory(ax, z_all)
+# Plotter.plot_filtered_trajectory(ax, b_all)
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(10, 10))
-ax_3D = fig_3D.add_subplot(111, projection='3d')
-Plotter.plot_trajectory_3D(ax_3D, x_all)
-
-plt.show()
+# fig_3D = plt.figure(figsize=(10, 10))
+# ax_3D = fig_3D.add_subplot(111, projection='3d')
+# Plotter.plot_trajectory_3D(ax_3D, x_all)
+#
+# plt.show()
 
 
 # ============================================================================
@@ -178,14 +180,15 @@ Plotter.plot_mpc(fig, axes, xlim, ylim,
 # Plot 2D
 fig, ax = plt.subplots(figsize=(10, 10))
 fig.tight_layout()
-Plotter.plot_trajectory(ax, x_all)
-Plotter.plot_observed_ball_trajectory(ax, z_all)
-Plotter.plot_filtered_trajectory(ax, b_all)
+handles = Plotter.plot_trajectory(ax, x_all)
+handles.extend(Plotter.plot_observed_ball_trajectory(ax, z_all))
+handles.extend(Plotter.plot_filtered_trajectory(ax, b_all))
+ax.legend(handles=handles, loc='upper left')
 
 # Plot 3D
-fig_3D = plt.figure(figsize=(10, 10))
-ax_3D = fig_3D.add_subplot(111, projection='3d')
-Plotter.plot_trajectory_3D(ax_3D, model.x.repeated(X_all))
+# fig_3D = plt.figure(figsize=(10, 10))
+# ax_3D = fig_3D.add_subplot(111, projection='3d')
+# Plotter.plot_trajectory_3D(ax_3D, model.x.repeated(X_all))
 
 
 # ------------------- Optic acceleration cancellation ---------------------- #
