@@ -22,11 +22,11 @@ __author__ = 'belousov'
 # Initial condition
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
-vy_b0 = 3
+vy_b0 = 7
 vz_b0 = 15
 
 x_c0 = 30
-y_c0 = -1
+y_c0 = 2
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
@@ -54,13 +54,13 @@ M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 N_min = 1e-2  # when looking directly at the ball
 N_max = 1e1   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
-w_cl = 1e2
+w_cl = 1e3
 # Running cost on controls: u.T * R * u
-R = 1e-1 * ca.diagcat([1e1, 1, 1, 1e-1])
+R = 1e0 * ca.diagcat([1, 1e-1, 1e1, 1e-1])
 # Final cost of uncertainty: w_Sl * tr(S)
-w_Sl = 1e2
+w_Sl = 1e3
 # Running cost of uncertainty: w_S * tr(S)
-w_S = 1e1
+w_S = 1e2
 # Control limits
 F_c1, F_c2 = 7.5, 2.5
 w_max = 2 * ca.pi
@@ -180,12 +180,13 @@ Plotter.plot_mpc(fig, axes, xlim, ylim,
 
 # -------------------------- Plot full simulation -------------------------- #
 # Plot 2D
-fig, ax = plt.subplots(figsize=(10, 10))
+fig, ax = plt.subplots()
 fig.tight_layout()
 handles = Plotter.plot_trajectory(ax, x_all)
 handles.extend(Plotter.plot_observed_ball_trajectory(ax, z_all))
 handles.extend(Plotter.plot_filtered_trajectory(ax, b_all))
 ax.legend(handles=handles, loc='upper left')
+ax.set_aspect('equal')
 
 # Plot 3D
 # fig_3D = plt.figure(figsize=(10, 10))

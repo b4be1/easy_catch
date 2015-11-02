@@ -77,7 +77,7 @@ class Planner:
             r = ca.veccat([V['X', k, 'x_b'] - V['X', k, 'x_c'],
                            V['X', k, 'y_b'] - V['X', k, 'y_c'],
                            V['X', k, 'z_b']])
-            stage_cost -= 1e0 * ca.mul(d.T, r)
+            stage_cost -= 1e0 * ca.mul(d.T, r) * model.dt
 
             running_cost += stage_cost
         return final_cost + running_cost
