@@ -22,11 +22,11 @@ __author__ = 'belousov'
 # Initial condition
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
-vy_b0 = 10
-vz_b0 = 10
+vy_b0 = 3
+vz_b0 = 15
 
-x_c0 = 25
-y_c0 = 15
+x_c0 = 30
+y_c0 = -1
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
@@ -42,7 +42,7 @@ S0 = ca.diagcat([1, 1, 0, 1, 1, 1,
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
-dt = 0.2
+dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
@@ -87,10 +87,11 @@ u_all = plan.prefix['U']
 eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
 # Plot 2D
-fig, ax = plt.subplots(figsize=(10, 10))
+fig, ax = plt.subplots()
 fig.tight_layout()
 handles = Plotter.plot_plan(ax, eb_all)
 ax.legend(handles=handles, loc='upper left')
+ax.set_aspect('equal')
 
 # Plot 3D
 # fig_3D = plt.figure(figsize=(10, 10))
@@ -111,10 +112,11 @@ u_all = plan.prefix['U']
 eb_all = Simulator.simulate_eb_trajectory(model, u_all)
 
 # Plot 2D
-fig, ax = plt.subplots(figsize=(10, 10))
+fig, ax = plt.subplots()
 fig.tight_layout()
 handles = Plotter.plot_plan(ax, eb_all)
 ax.legend(handles=handles, loc='upper left')
+ax.set_aspect('equal')
 
 # Plot 3D
 # fig_3D = plt.figure(figsize=(10, 10))
@@ -170,8 +172,8 @@ b_all = model.b.repeated(B_all)
 # ---------------------- Step-by-step plotting ----------------------------- #
 fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 fig.tight_layout()
-xlim = (-5, 25)
-ylim = (-5, 25)
+xlim = (-5, 35)
+ylim = (-5, 35)
 Plotter.plot_mpc(fig, axes, xlim, ylim,
                  model, X_all, Z_all, B_all, EB_all)
 

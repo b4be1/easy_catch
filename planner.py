@@ -71,13 +71,13 @@ class Planner:
             [stage_cost] = model.c([V['X', k], V['U', k]])
 
             # Encourage looking at the ball
-            # d = ca.veccat([ca.cos(V['X', k, 'psi'])*ca.cos(V['X', k, 'phi']),
-            #                ca.cos(V['X', k, 'psi'])*ca.sin(V['X', k, 'phi']),
-            #                ca.sin(V['X', k, 'psi'])])
-            # r = ca.veccat([V['X', k, 'x_b'] - V['X', k, 'x_c'],
-            #                V['X', k, 'y_b'] - V['X', k, 'y_c'],
-            #                V['X', k, 'z_b']])
-            # stage_cost -= 1e-1 * ca.mul(d.T, r)
+            d = ca.veccat([ca.cos(V['X', k, 'psi'])*ca.cos(V['X', k, 'phi']),
+                           ca.cos(V['X', k, 'psi'])*ca.sin(V['X', k, 'phi']),
+                           ca.sin(V['X', k, 'psi'])])
+            r = ca.veccat([V['X', k, 'x_b'] - V['X', k, 'x_c'],
+                           V['X', k, 'y_b'] - V['X', k, 'y_c'],
+                           V['X', k, 'z_b']])
+            stage_cost -= 1e0 * ca.mul(d.T, r)
 
             running_cost += stage_cost
         return final_cost + running_cost
