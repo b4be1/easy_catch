@@ -22,7 +22,7 @@ __author__ = 'belousov'
 # Initial condition
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
-vy_b0 = 7
+vy_b0 = 6
 vz_b0 = 15
 
 x_c0 = 30
@@ -46,7 +46,7 @@ dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 1
 # Reaction time (in units of dt)
-n_delay = 2
+n_delay = 3
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
@@ -169,11 +169,12 @@ x_all = model.x.repeated(X_all)
 z_all = model.z.repeated(Z_all)
 b_all = model.b.repeated(B_all)
 
+
 # ---------------------- Step-by-step plotting ----------------------------- #
-fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+fig, axes = plt.subplots(1, 2, figsize=(20, 8))
 fig.tight_layout()
 xlim = (-5, 35)
-ylim = (-5, 35)
+ylim = (-5, 20)
 Plotter.plot_mpc(fig, axes, xlim, ylim,
                  model, X_all, Z_all, B_all, EB_all)
 
