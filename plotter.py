@@ -3,6 +3,8 @@ from matplotlib.patches import Patch, Ellipse
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 
+from scipy.interpolate import spline
+
 import numpy as np
 import casadi as ca
 
@@ -255,9 +257,11 @@ class Plotter:
 
     # --------------------------- Heuristics ------------------------------- #
     @staticmethod
-    def plot_heuristics(model, x_all):
+    def plot_heuristics(model, x_all, u_all, n_last=2):
         n = len(x_all[:])
-        n_last = 2
+        fig, ax = plt.subplots(2, 2, figsize=(12, 12))
+
+        # ---------------- Optic acceleration cancellation ----------------- #
         oac = []
         for k in range(n):
             x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
@@ -272,40 +276,101 @@ class Plotter:
         fit_oac = np.polyfit(t_all[:-n_last], oac[:-n_last], 1)
         fit_oac_fn = np.poly1d(fit_oac)
 
+        # Plot OAC
+        ax[0, 0].plot(t_all[:-n_last], oac[:-n_last],
+                      label='$\\tan\\alpha \\approx (const)t$')
+        ax[0, 0].plot(t_all, fit_oac_fn(t_all), '--k', label='linear fit')
+        ax[0, 0].set_title('Optic acceleration cancellation (OAC)')
+        ax[0, 0].set_xlabel('time, sec')
+        ax[0, 0].set_ylabel('$\\tan \\alpha$')
+        ax[0, 0].grid(True)
+        ax[0, 0].legend(loc='upper left')
+
         # ------------------- Constant bearing angle ----------------------- #
         cba = []
+        d = ca.veccat([ca.cos(model.m0['phi']),
+                       ca.sin(model.m0['phi'])])
         for k in range(n):
             x_b = x_all[k, ca.veccat, ['x_b', 'y_b']]
             x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
             r_cb = x_b - x_c
-            r_cb_unit = r_cb / ca.norm_2(r_cb)
-            cba.append(ca.arccos(r_cb_unit[0]))  # cos of the angle with xaxis
+            cos_gamma = ca.mul(d.T, r_cb) / ca.norm_2(r_cb)
+            cba.append(np.rad2deg(np.float(ca.arccos(cos_gamma))))
 
         # Fit a const for CBA
         fit_cba = np.polyfit(t_all[:-n_last], cba[:-n_last], 0)
         fit_cba_fn = np.poly1d(fit_cba)
 
-        # ----------------------- Plot OAC and CBA ------------------------- #
-        # Plot 2D
-        fig, ax = plt.subplots(2, 1, figsize=(6, 12))
-        ax[0].plot(t_all, oac, label='$\\tan\\alpha$')
-        ax[0].plot(t_all, fit_oac_fn(t_all), '--k', label='linear fit')
-        ax[0].set_title('Optic acceleration cancellation')
-        # ax[0].set_xlabel('time, sec')
-        ax[0].set_ylabel('$\\tan \\alpha$')
-        ax[0].grid(True)
-        ax[0].legend(loc='upper left')
+        # Plot CBA
+        ax[1, 0].plot(t_all[:-n_last], cba[:-n_last],
+                      label='$\gamma \\approx const$')
+        ax[1, 0].plot(t_all, fit_cba_fn(t_all), '--k', label='constant fit')
+        ax[1, 0].set_title('Constant bearing angle (CBA)')
+        ax[1, 0].set_xlabel('time, sec')
+        ax[1, 0].set_ylabel('bearing angle w.r.t. x-axis')
+        ax[1, 0].grid(True)
+        ax[1, 0].legend(loc='upper left')
 
-        # Plot 2D
-        ax[1].plot(t_all, cba, label='bearing angle')
-        ax[1].plot(t_all, fit_cba_fn(t_all), '--k', label='constant fit')
-        ax[1].set_title('Constant bearing angle')
-        ax[1].set_xlabel('time, sec')
-        ax[1].set_ylabel('bearing angle w.r.t. x-axis')
-        ax[1].grid(True)
-        ax[1].legend(loc='lower left')
+        # ---------- Generalized optic acceleration cancellation ----------- #
+        t_all_dense = np.linspace(t_all[0], t_all[-1], 301)
+        smooth_phi = spline(t_all,
+                            model.m0['phi'] - x_all[:, 'phi'],
+                            t_all_dense)
+
+        # Delta
+        ax[0, 1].plot(t_all_dense, np.rad2deg(smooth_phi), 'b-',
+                   label='$\delta \\approx 0$')
+        ax[0, 1].plot([t_all[0], t_all[-1]], [30, 30], 'k--',
+                      label='experimental bound')
+        ax[0, 1].plot([t_all[0], t_all[-1]], [-30, -30], 'k--')
+        ax[0, 1].set_ylim(-90, 90)
+        ax[0, 1].yaxis.set_ticks(range(-90, 100, 30))
+        ax[0, 1].set_title('Generalized OAC')
+        ax[0, 1].set_xlabel('time, sec')
+        ax[0, 1].set_ylabel('$\delta$, deg')
+        ax[0, 1].yaxis.label.set_color('b')
+        ax[0, 1].grid(True)
+        ax[0, 1].legend(loc='upper left')
+
+        # Derivative of delta
+        # ax0_twin = ax[0, 1].twinx()
+        # ax0_twin.step(t_all,
+        #               np.rad2deg(np.array(ca.veccat([0, u_all[:, 'w_phi']]))),
+        #               'g-', label='derivative $\mathrm{d}\delta/\mathrm{d}t$')
+        # ax0_twin.set_ylim(-90, 90)
+        # ax0_twin.yaxis.set_ticks(range(-90, 100, 30))
+        # ax0_twin.set_ylabel('$\mathrm{d}\delta/\mathrm{d}t$, deg/s')
+        # ax0_twin.yaxis.label.set_color('g')
+        # ax0_twin.legend(loc='lower right')
+
+        # -------------------- Linear optic trajectory --------------------- #
+        lot_beta = []
+        x_b = model.m0[ca.veccat, ['x_b', 'y_b']]
+        for k in range(n):
+            x_c = x_all[k, ca.veccat, ['x_c', 'y_c']]
+            d = ca.veccat([ca.cos(x_all[k, 'phi']),
+                           ca.sin(x_all[k, 'phi'])])
+            r = x_b - x_c
+            cos_beta = ca.mul(d.T, r) / ca.norm_2(r)
+            lot_beta.append(np.rad2deg(np.float(ca.arccos(cos_beta))))
+        lot_alpha = np.rad2deg(np.array(x_all[:, 'psi']))
+
+        # Fit a line for LOT
+        fit_lot = np.polyfit(lot_alpha[:-n_last], lot_beta[:-n_last], 1)
+        fit_lot_fn = np.poly1d(fit_lot)
+
+        # Plot
+        ax[1, 1].scatter(lot_alpha[:-n_last], lot_beta[:-n_last],
+                         label='$\\beta \\approx (const) \\alpha$')
+        ax[1, 1].plot(lot_alpha, fit_lot_fn(lot_alpha),
+                      '--k', label='linear fit')
+        ax[1, 1].set_title('Linear optic trajectory (LOT)')
+        ax[1, 1].set_xlabel('$\\alpha$, deg')
+        ax[1, 1].set_ylabel('$\\beta$, deg')
+        ax[1, 1].grid(True)
+        ax[1, 1].legend(loc='upper left')
+
         fig.tight_layout()
-
         return fig
 
     # ========================================================================

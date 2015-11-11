@@ -124,7 +124,7 @@ class Simulator:
                                       model_p.b(B_all[:, k+1])['m'],
                                       model_p.b(B_all[:, k+1])['S'])
             k += 1
-        return X_all, Z_all, B_all, EB_all
+        return X_all, U_all, Z_all, B_all, EB_all
 
 
 
