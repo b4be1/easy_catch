@@ -22,11 +22,11 @@ __author__ = 'belousov'
 # Initial condition
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
-vy_b0 = 5
-vz_b0 = 15
+vy_b0 = 4
+vz_b0 = 10
 
-x_c0 = 30
-y_c0 = 2
+x_c0 = 20
+y_c0 = 0
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:

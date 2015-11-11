@@ -259,6 +259,9 @@ class Plotter:
     @staticmethod
     def plot_heuristics(model, x_all, u_all, n_last=2):
         n = len(x_all[:])
+        t_all = np.linspace(0, (n - 1) * model.dt, n)
+        t_all_dense = np.linspace(t_all[0], t_all[-1], 301)
+
         fig, ax = plt.subplots(2, 2, figsize=(12, 12))
 
         # ---------------- Optic acceleration cancellation ----------------- #
@@ -272,7 +275,6 @@ class Plotter:
             oac.append(tan_phi)
 
         # Fit a line for OAC
-        t_all = np.linspace(0, (n - 1) * model.dt, n)
         fit_oac = np.polyfit(t_all[:-n_last], oac[:-n_last], 1)
         fit_oac_fn = np.poly1d(fit_oac)
 
@@ -301,31 +303,36 @@ class Plotter:
         fit_cba = np.polyfit(t_all[:-n_last], cba[:-n_last], 0)
         fit_cba_fn = np.poly1d(fit_cba)
 
-        # Plot CBA
-        ax[1, 0].plot(t_all[:-n_last], cba[:-n_last],
+        # Smoothen the trajectory
+        t_part_dense = np.linspace(t_all[0], t_all[-n_last-1], 301)
+        cba_smooth = spline(t_all[:-n_last], cba[:-n_last], t_part_dense)
+        ax[1, 0].plot(t_part_dense, cba_smooth,
                       label='$\gamma \\approx const$')
+
+        # Plot CBA
+        # ax[1, 0].plot(t_all[:-n_last], cba[:-n_last],
+        #               label='$\gamma \\approx const$')
         ax[1, 0].plot(t_all, fit_cba_fn(t_all), '--k', label='constant fit')
         ax[1, 0].set_title('Constant bearing angle (CBA)')
         ax[1, 0].set_xlabel('time, sec')
-        ax[1, 0].set_ylabel('bearing angle w.r.t. x-axis')
+        ax[1, 0].set_ylabel('$\gamma$, deg')
         ax[1, 0].grid(True)
         ax[1, 0].legend(loc='upper left')
 
         # ---------- Generalized optic acceleration cancellation ----------- #
-        t_all_dense = np.linspace(t_all[0], t_all[-1], 301)
-        smooth_phi = spline(t_all,
+        goac_smooth = spline(t_all,
                             model.m0['phi'] - x_all[:, 'phi'],
                             t_all_dense)
 
         # Delta
-        ax[0, 1].plot(t_all_dense, np.rad2deg(smooth_phi), 'b-',
+        ax[0, 1].plot(t_all_dense, np.rad2deg(goac_smooth), 'b-',
                    label='$\delta \\approx 0$')
         ax[0, 1].plot([t_all[0], t_all[-1]], [30, 30], 'k--',
                       label='experimental bound')
         ax[0, 1].plot([t_all[0], t_all[-1]], [-30, -30], 'k--')
-        ax[0, 1].set_ylim(-90, 90)
-        ax[0, 1].yaxis.set_ticks(range(-90, 100, 30))
-        ax[0, 1].set_title('Generalized OAC')
+        ax[0, 1].set_ylim(-60, 60)
+        ax[0, 1].yaxis.set_ticks(range(-60, 70, 30))
+        ax[0, 1].set_title('Generalized OAC (GOAC)')
         ax[0, 1].set_xlabel('time, sec')
         ax[0, 1].set_ylabel('$\delta$, deg')
         ax[0, 1].yaxis.label.set_color('b')
@@ -352,8 +359,15 @@ class Plotter:
                            ca.sin(x_all[k, 'phi'])])
             r = x_b - x_c
             cos_beta = ca.mul(d.T, r) / ca.norm_2(r)
-            lot_beta.append(np.rad2deg(np.float(ca.arccos(cos_beta))))
-        lot_alpha = np.rad2deg(np.array(x_all[:, 'psi']))
+
+            beta = ca.arccos(cos_beta)
+            tan_beta = ca.tan(beta)
+            lot_beta.append(tan_beta)
+
+            # lot_beta.append(np.rad2deg(np.float(ca.arccos(cos_beta))))
+        # lot_alpha = np.rad2deg(np.array(x_all[:, 'psi']))
+
+        lot_alpha = ca.tan(x_all[:, 'psi'])
 
         # Fit a line for LOT
         fit_lot = np.polyfit(lot_alpha[:-n_last], lot_beta[:-n_last], 1)
@@ -361,12 +375,12 @@ class Plotter:
 
         # Plot
         ax[1, 1].scatter(lot_alpha[:-n_last], lot_beta[:-n_last],
-                         label='$\\beta \\approx (const) \\alpha$')
+                         label='$\\tan\\beta \\approx (const) \\tan\\alpha$')
         ax[1, 1].plot(lot_alpha, fit_lot_fn(lot_alpha),
                       '--k', label='linear fit')
         ax[1, 1].set_title('Linear optic trajectory (LOT)')
-        ax[1, 1].set_xlabel('$\\alpha$, deg')
-        ax[1, 1].set_ylabel('$\\beta$, deg')
+        ax[1, 1].set_xlabel('$\\tan\\alpha$')
+        ax[1, 1].set_ylabel('$\\tan\\beta$')
         ax[1, 1].grid(True)
         ax[1, 1].legend(loc='upper left')
 
