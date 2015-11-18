@@ -98,6 +98,8 @@ class Simulator:
 
             # Planner: plan for model_p.n time steps
             plan, lam_x, lam_g = Planner.create_plan(model_p)
+            # plan, lam_x, lam_g = Planner.create_plan(model_p, warm_start=True,
+            #                             x0=plan, lam_x0=lam_x, lam_g0=lam_g)
             belief_plan = Planner.create_belief_plan(model_p, warm_start=True,
                                         x0=plan, lam_x0=lam_x, lam_g0=lam_g)
             u_all = model_p.u.repeated(ca.horzcat(belief_plan['U']))

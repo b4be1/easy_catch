@@ -257,7 +257,9 @@ class Model:
 
         # Look at the ball
         N = self.z.squared(ca.SX.zeros(self.nz, self.nz))
-        variance = N_max * (1 - cos_omega) + N_min
+        # variance = N_max * (1 - cos_omega) + N_min
+        # variance = ca.mul(r.T, r) * ((1 - cos_omega) + N_min)
+        variance = ca.norm_2(r) * (N_max * (1 - cos_omega) + N_min)
         N['x_b', 'x_b'] = variance
         N['y_b', 'y_b'] = variance
         N['z_b', 'z_b'] = variance
@@ -453,8 +455,12 @@ class Model:
     def _set_state_limits(self, lbx, ubx):
         # psi >= 0
         lbx['X', :, 'psi'] = 0
-        # psi < pi/2
+        # psi < pi / 2
         ubx['X', :, 'psi'] = self.psi_max
+        # phi >= 0
+        lbx['X', :, 'phi'] = 0
+        # phi <= 2 * pi
+        ubx['X', :, 'phi'] = 2 * ca.pi
 
     def _set_constraint(self, V, k):
         return V['U', k, 'F_c'] -\

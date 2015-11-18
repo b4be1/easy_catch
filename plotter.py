@@ -370,13 +370,16 @@ class Plotter:
         lot_alpha = ca.tan(x_all[:, 'psi'])
 
         # Fit a line for LOT
-        fit_lot = np.polyfit(lot_alpha[:-n_last], lot_beta[:-n_last], 1)
+        fit_lot = np.polyfit(lot_alpha[model.n_delay:-n_last],
+                             lot_beta[model.n_delay:-n_last], 1)
         fit_lot_fn = np.poly1d(fit_lot)
 
         # Plot
-        ax[1, 1].scatter(lot_alpha[:-n_last], lot_beta[:-n_last],
+        ax[1, 1].scatter(lot_alpha[model.n_delay:-n_last],
+                         lot_beta[model.n_delay:-n_last],
                          label='$\\tan\\beta \\approx (const) \\tan\\alpha$')
-        ax[1, 1].plot(lot_alpha, fit_lot_fn(lot_alpha),
+        ax[1, 1].plot(lot_alpha[model.n_delay:-n_last],
+                      fit_lot_fn(lot_alpha[model.n_delay:-n_last]),
                       '--k', label='linear fit')
         ax[1, 1].set_title('Linear optic trajectory (LOT)')
         ax[1, 1].set_xlabel('$\\tan\\alpha$')

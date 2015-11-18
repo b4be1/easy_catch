@@ -23,10 +23,10 @@ __author__ = 'belousov'
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
 vy_b0 = 4
-vz_b0 = 10
+vz_b0 = 15
 
-x_c0 = 20
-y_c0 = 0
+x_c0 = 30
+y_c0 = 2
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
@@ -51,16 +51,16 @@ n_delay = 3
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
-N_min = 1e-2  # when looking directly at the ball
-N_max = 1e1   # when the ball is 90 degrees from the gaze direction
+N_min = 1e-3  # when looking directly at the ball
+N_max = 1e0   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
 w_cl = 1e3
 # Running cost on controls: u.T * R * u
-R = 1e0 * ca.diagcat([1, 1e-1, 1e1, 1e-1])
+R = 1e0 * ca.diagcat([1e1, 1e0, 1e0, 1e-1])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e3
 # Running cost of uncertainty: w_S * tr(S)
-w_S = 1e2
+w_S = 0  # 1e2
 # Control limits
 F_c1, F_c2 = 7.5, 2.5
 w_max = 2 * ca.pi
@@ -80,6 +80,8 @@ model = new_model()
 # ============================================================================
 # Find optimal controls
 plan, lam_x, lam_g = Planner.create_plan(model)
+# plan, lam_x, lam_g = Planner.create_plan(model, warm_start=True,
+#                                          x0=plan, lam_x0=lam_x, lam_g0=lam_g)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
 
@@ -139,11 +141,11 @@ z_all = Simulator.simulate_observed_trajectory(model, x_all)
 b_all = Simulator.filter_observed_trajectory(model, z_all, u_all)
 
 # Plot 2D
-# fig, ax = plt.subplots(figsize=(10, 10))
-# fig.tight_layout()
-# Plotter.plot_trajectory(ax, x_all)
-# Plotter.plot_observed_ball_trajectory(ax, z_all)
-# Plotter.plot_filtered_trajectory(ax, b_all)
+fig, ax = plt.subplots(figsize=(10, 10))
+fig.tight_layout()
+Plotter.plot_trajectory(ax, x_all)
+Plotter.plot_observed_ball_trajectory(ax, z_all)
+Plotter.plot_filtered_trajectory(ax, b_all)
 
 # Plot 3D
 # fig_3D = plt.figure(figsize=(10, 10))
@@ -196,7 +198,7 @@ ax.set_aspect('equal')
 # Plotter.plot_trajectory_3D(ax_3D, model.x.repeated(X_all))
 
 
-# ------------------- Optic acceleration cancellation ---------------------- #
+# ---------------------------- Heuristics ---------------------------------- #
 fig = Plotter.plot_heuristics(model, x_all, u_all)
 
 

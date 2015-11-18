@@ -10,7 +10,8 @@ class Planner:
     #                            Simple planning
     # ========================================================================
     @classmethod
-    def create_plan(cls, model, initial_plan=0):
+    def create_plan(cls, model, warm_start=False,
+                    x0=0, lam_x0=0, lam_g0=0):
         # Degrees of freedom for the optimizer
         V = cat.struct_symSX([
             (
@@ -29,7 +30,7 @@ class Planner:
         [g, lbg, ubg] = cls._create_nonlinear_constraints(model, V)
 
         # Objective function
-        J = cls._create_objective_function(model, V)
+        J = cls._create_objective_function(model, V, warm_start)
 
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
@@ -37,11 +38,24 @@ class Planner:
               'linear_solver':              'ma97',
               # Acceptable termination
               'acceptable_iter':            5}
+
+        if warm_start:
+            op['warm_start_init_point'] = 'yes'
+            op['fixed_variable_treatment'] = 'make_constraint'
+
+        # Initialize solver
         solver = ca.NlpSolver('solver', 'ipopt', nlp, op)
 
         # Solve
-        sol = solver(x0=initial_plan, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
+        if warm_start:
+            sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg,
+                         lam_x0=lam_x0, lam_g0=lam_g0)
+        else:
+            sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
         return V(sol['x']), sol['lam_x'], sol['lam_g']
+
+        # sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
+        # return V(sol['x']), sol['lam_x'], sol['lam_g']
 
     @staticmethod
     def _create_nonlinear_constraints(model, V):
@@ -64,7 +78,7 @@ class Planner:
         return [g, lbg, ubg]
 
     @staticmethod
-    def _create_objective_function(model, V):
+    def _create_objective_function(model, V, warm_start):
         [final_cost] = model.cl([V['X', model.n]])
         running_cost = 0
         for k in range(model.n):
@@ -77,7 +91,12 @@ class Planner:
             r = ca.veccat([V['X', k, 'x_b'] - V['X', k, 'x_c'],
                            V['X', k, 'y_b'] - V['X', k, 'y_c'],
                            V['X', k, 'z_b']])
-            stage_cost -= 1e0 * ca.mul(d.T, r) * model.dt
+            r_cos_omega = ca.mul(d.T, r)
+            if warm_start:
+                cos_omega = r_cos_omega / (ca.norm_2(r) + 1e-6)
+                stage_cost += 1e0 * (1 - cos_omega)
+            else:
+                stage_cost -= 1e0 * r_cos_omega * model.dt
 
             running_cost += stage_cost
         return final_cost + running_cost
@@ -131,7 +150,7 @@ class Planner:
         op = {# Linear solver
               'linear_solver':              'ma97',
               # Warm start
-              'warm_start_init_point':      'yes',
+              # 'warm_start_init_point':      'yes',
               # Termination
               'max_iter':                   300,
               'tol':                        1e-3,
@@ -142,11 +161,17 @@ class Planner:
               'acceptable_iter':            5,
               'acceptable_obj_change_tol':  1e-2,
               # NLP
-              'fixed_variable_treatment':   'make_constraint',
+              # 'fixed_variable_treatment':   'make_constraint',
               # Quasi-Newton
               'hessian_approximation':      'limited-memory',
               'limited_memory_max_history': 5,
               'limited_memory_max_skipping': 1}
+
+        if warm_start:
+            op['warm_start_init_point'] = 'yes'
+            op['fixed_variable_treatment'] = 'make_constraint'
+
+        # Initialize solver
         solver = ca.NlpSolver('solver', 'ipopt', nlp, op)
 
         # Solve
