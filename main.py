@@ -38,7 +38,7 @@ m0 = ca.DMatrix([x_b0, y_b0, z_b0, vx_b0, vy_b0, vz_b0,
                  x_c0, y_c0, vx_c0, vy_c0, phi0, psi0])
 # Initial covariance
 S0 = ca.diagcat([1, 1, 0, 1, 1, 1,
-                 0.5, 0.5, 0.5, 0.5, 1e-2, 1e-2]) * 0.25
+                 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
 # Discretization step
@@ -51,8 +51,8 @@ n_delay = 3
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
-N_min = 1e-3  # when looking directly at the ball
-N_max = 1e0   # when the ball is 90 degrees from the gaze direction
+N_min = 1e-2  # when looking directly at the ball
+N_max = 1e1   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
 w_cl = 1e3
 # Running cost on controls: u.T * R * u
@@ -60,7 +60,7 @@ R = 1e0 * ca.diagcat([1e1, 1e0, 1e0, 1e-1])
 # Final cost of uncertainty: w_Sl * tr(S)
 w_Sl = 1e3
 # Running cost of uncertainty: w_S * tr(S)
-w_S = 0  # 1e2
+w_S = 1e2
 # Control limits
 F_c1, F_c2 = 7.5, 2.5
 w_max = 2 * ca.pi
@@ -105,7 +105,7 @@ ax.set_aspect('equal')
 #                           Belief space planning
 # ============================================================================
 # Find optimal controls
-plan = Planner.create_belief_plan(model, warm_start=True,
+plan, lam_x,  lam_g = Planner.create_belief_plan(model, warm_start=True,
                                   x0=plan, lam_x0=lam_x, lam_g0=lam_g)
 x_all = plan.prefix['X']
 u_all = plan.prefix['U']
@@ -199,6 +199,7 @@ ax.set_aspect('equal')
 
 
 # ---------------------------- Heuristics ---------------------------------- #
+model = new_model()
 fig = Plotter.plot_heuristics(model, x_all, u_all)
 
 

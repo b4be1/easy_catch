@@ -35,7 +35,7 @@ class Planner:
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
         op = {# Linear solver
-              'linear_solver':              'ma97',
+              'linear_solver':              'ma57',
               # Acceptable termination
               'acceptable_iter':            5}
 
@@ -148,11 +148,11 @@ class Planner:
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
         op = {# Linear solver
-              'linear_solver':              'ma97',
+              'linear_solver':              'ma57',
               # Warm start
               # 'warm_start_init_point':      'yes',
               # Termination
-              'max_iter':                   300,
+              'max_iter':                   500,
               'tol':                        1e-3,
               'constr_viol_tol':            1e-3,
               'compl_inf_tol':              1e-3,
@@ -180,7 +180,7 @@ class Planner:
                          lam_x0=lam_x0, lam_g0=lam_g0)
         else:
             sol = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
-        return V(sol['x'])
+        return V(sol['x']), sol['lam_x'], sol['lam_g']
 
     @staticmethod
     def _create_belief_nonlinear_constraints(model, V):

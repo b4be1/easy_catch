@@ -100,9 +100,11 @@ class Simulator:
             plan, lam_x, lam_g = Planner.create_plan(model_p)
             # plan, lam_x, lam_g = Planner.create_plan(model_p, warm_start=True,
             #                             x0=plan, lam_x0=lam_x, lam_g0=lam_g)
-            belief_plan = Planner.create_belief_plan(model_p, warm_start=True,
-                                        x0=plan, lam_x0=lam_x, lam_g0=lam_g)
+            belief_plan, _, _ = Planner.create_belief_plan(model_p,
+                                                    warm_start=True, x0=plan,
+                                                    lam_x0=lam_x, lam_g0=lam_g)
             u_all = model_p.u.repeated(ca.horzcat(belief_plan['U']))
+            # u_all = model_p.u.repeated(ca.horzcat(plan['U']))
 
             # cls: simulate ebelief trajectory for plotting
             eb_all_tail = cls.simulate_eb_trajectory(model_p, u_all)
