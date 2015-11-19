@@ -52,7 +52,7 @@ M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
 N_min = 1e-2  # when looking directly at the ball
-N_max = 1e1   # when the ball is 90 degrees from the gaze direction
+N_max = 1e0   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
 w_cl = 1e3
 # Running cost on controls: u.T * R * u

@@ -257,9 +257,9 @@ class Model:
 
         # Look at the ball
         N = self.z.squared(ca.SX.zeros(self.nz, self.nz))
-        variance = N_max * (1 - cos_omega) + N_min
-        # variance = ca.mul(r.T, r) * ((1 - cos_omega) + N_min)
-        # variance = ca.norm_2(r) * (N_max * (1 - cos_omega) + N_min)
+        # variance = N_max * (1 - cos_omega) + N_min
+        # variance = ca.mul(r.T, r) * (N_max * (1 - cos_omega) + N_min)
+        variance = ca.norm_2(r) * (N_max * (1 - cos_omega) + N_min)
         N['x_b', 'x_b'] = variance
         N['y_b', 'y_b'] = variance
         N['z_b', 'z_b'] = variance
