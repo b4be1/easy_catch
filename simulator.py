@@ -72,7 +72,7 @@ class Simulator:
         u_all = model.u.repeated(ca.DMatrix.zeros(model.nu, model.n_delay))
         x_all = cls.simulate_trajectory(model, u_all)
         z_all = cls.simulate_observed_trajectory(model, x_all)
-        b_all = cls.filter_observed_trajectory(model, z_all, u_all)
+        b_all = cls.filter_observed_trajectory(model_p, z_all, u_all)
 
         # Store simulation results
         X_all = x_all.cast()
@@ -103,8 +103,8 @@ class Simulator:
             # Planner: plan for model_p.n time steps
             plan, lam_x, lam_g = Planner.create_plan(model_p)
             # plan, lam_x, lam_g = Planner.create_plan(
-            # model_p, warm_start=True,
-            # x0=plan, lam_x0=lam_x, lam_g0=lam_g
+            #   model_p, warm_start=True,
+            #   x0=plan, lam_x0=lam_x, lam_g0=lam_g
             # )
             belief_plan, _, _ = Planner.create_belief_plan(
                 model_p, warm_start=True,
@@ -120,7 +120,7 @@ class Simulator:
             x_all = cls.simulate_trajectory(model, [u_all[0]])
             z_all = cls.simulate_observed_trajectory(model, x_all)
             b_all = cls.filter_observed_trajectory(
-                model, z_all, [u_all[0]]
+                model_p, z_all, [u_all[0]]
             )
 
             # Save simulation results

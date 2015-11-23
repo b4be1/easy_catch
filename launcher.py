@@ -22,10 +22,10 @@ __author__ = 'belousov'
 # Model creation wrapper
 def new_model(
         # Initial conditions
-        x_b0=0, y_b0=0, z_b0=0, vx_b0=10, vy_b0=4, vz_b0=15,
-        x_c0=30, y_c0=2, vx_c0=0, vy_c0=0,
+        x_b0=0, y_b0=0, z_b0=0, vx_b0=10, vy_b0=5, vz_b0=15,
+        x_c0=20, y_c0=5, vx_c0=0, vy_c0=0,
         # Initial covariance
-        S0=ca.diagcat([0.1, 0.1, 0, 1, 1, 0,
+        S0=ca.diagcat([0.1, 0.1, 0, 0.1, 0.1, 0,
                        1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25,
         # Hypercovariance weight
         L0_weight=1e-5,
@@ -95,16 +95,16 @@ def one_plan():
     handles = Plotter.plot_plan(ax, eb_all)
     ax.legend(handles=handles, loc='upper left')
     ax.set_aspect('equal')
+    plt.show()
 
 
 # ============================================================================
 #                         Model predictive control
 # ============================================================================
-# ----------------------------- Simulation --------------------------------- #
-def run_mpc():
+def run_mpc(n_delay=1, M_weight=1e-3):
     # Create models for simulation and planning
-    model = new_model()
-    model_p = new_model()
+    model = new_model(n_delay=n_delay)
+    model_p = new_model(n_delay=n_delay, M_weight=M_weight)
 
     # Run MPC
     X_all, U_all, Z_all, B_all, EB_all = Simulator.mpc(model, model_p)
@@ -115,8 +115,21 @@ def run_mpc():
     z_all = model.z.repeated(Z_all)
     b_all = model.b.repeated(B_all)
 
-    # ------------------------ Plot full simulation ------------------------ #
-    # Plot 2D
+    # Plot full simulation
+    plot_full(x_all, z_all, b_all)
+
+    # Plot heuristics
+    model = new_model()
+    fig = Plotter.plot_heuristics(model, x_all, u_all)
+    plt.show()
+
+    return X_all, U_all, Z_all, B_all, EB_all, model
+
+
+# ============================================================================
+#                                Plotting
+# ============================================================================
+def plot_full(x_all, z_all, b_all):
     fig, ax = plt.subplots()
     fig.tight_layout()
     handles = Plotter.plot_trajectory(ax, x_all)
@@ -124,21 +137,28 @@ def run_mpc():
     handles.extend(Plotter.plot_filtered_trajectory(ax, b_all))
     ax.legend(handles=handles, loc='upper left')
     ax.set_aspect('equal')
+    plt.show()
 
-    # -------------------------- Heuristics -------------------------------- #
-    model = new_model()
-    fig = Plotter.plot_heuristics(model, x_all, u_all)
+def plot_step_by_step(X_all, U_all, Z_all, B_all, EB_all, model):
+    fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+    fig.tight_layout()
+    xlim = (-5, 35)
+    ylim = (-5, 30)
+    Plotter.plot_mpc(
+        fig, axes, xlim, ylim, model, X_all, Z_all, B_all, EB_all
+    )
 
 
 # ============================================================================
 #                                   Body
 # ============================================================================
-one_plan()
-plt.show()
+# one_plan()
 
-for i in range(1):
-    run_mpc()
-plt.show()
+# stuff = run_mpc()
+# plot_step_by_step(*stuff)
+
+for i in range(4):
+    run_mpc(n_delay=2*i+2, M_weight=1e-2)
 
 
 
