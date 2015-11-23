@@ -79,10 +79,7 @@ def new_model(
 #                           Plan single trajectory
 # ============================================================================
 def one_plan():
-    model = new_model(          # catcher planning
-        M_weight=1e-3,          # system noise
-        N_min=1e-3, N_max=1e0,  # observations noise
-    )
+    model = new_model()
     plan, lam_x, lam_g = Planner.create_plan(model)
     plan, lam_x,  lam_g = Planner.create_belief_plan(
         model, warm_start=True,
@@ -106,13 +103,8 @@ def one_plan():
 # ----------------------------- Simulation --------------------------------- #
 def run_mpc():
     # Create models for simulation and planning
-    model = new_model(          # ball simulation
-        M_weight=1e-3           # system noise
-    )
-    model_p = new_model(        # catcher planning
-        M_weight=1e-3,          # system noise
-        N_min=1e-3, N_max=1e0,  # observations noise
-    )
+    model = new_model()
+    model_p = new_model()
 
     # Run MPC
     X_all, U_all, Z_all, B_all, EB_all = Simulator.mpc(model, model_p)
