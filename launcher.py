@@ -25,7 +25,7 @@ def new_model(
         x_b0=0, y_b0=0, z_b0=0, vx_b0=10, vy_b0=4, vz_b0=15,
         x_c0=30, y_c0=2, vx_c0=0, vy_c0=0,
         # Initial covariance
-        S0=ca.diagcat([0.1, 0.1, 0, 0.1, 0.1, 0,
+        S0=ca.diagcat([0.1, 0.1, 0, 1, 1, 0,
                        1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25,
         # Hypercovariance weight
         L0_weight=1e-5,
@@ -38,8 +38,8 @@ def new_model(
         # System noise weight
         M_weight=1e-3,
         # Observation noise
-        N_min=1e-2,  # when looking directly at the ball
-        N_max=1e1,   # when the ball is 90 degrees from the gaze direction
+        N_min=1e-3,  # when looking directly at the ball
+        N_max=1e0,   # when the ball is 90 degrees from the gaze direction
         # Final cost: w_cl * distance_between_ball_and_catcher
         w_cl=1e3,
         # Running cost on controls: u.T * R * u
