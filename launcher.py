@@ -74,8 +74,30 @@ def new_model(
     return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
                  (w_cl, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
 
-# Create model
-model = new_model()
+
+# ============================================================================
+#                           Plan single trajectory
+# ============================================================================
+def one_plan():
+    model = new_model(          # catcher planning
+        M_weight=1e-3,          # system noise
+        N_min=1e-3, N_max=1e0,  # observations noise
+    )
+    plan, lam_x, lam_g = Planner.create_plan(model)
+    plan, lam_x,  lam_g = Planner.create_belief_plan(
+        model, warm_start=True,
+        x0=plan, lam_x0=lam_x, lam_g0=lam_g
+    )
+    x_all = plan.prefix['X']
+    u_all = plan.prefix['U']
+    eb_all = Simulator.simulate_eb_trajectory(model, u_all)
+
+    # Plot
+    fig, ax = plt.subplots()
+    fig.tight_layout()
+    handles = Plotter.plot_plan(ax, eb_all)
+    ax.legend(handles=handles, loc='upper left')
+    ax.set_aspect('equal')
 
 
 # ============================================================================
@@ -84,8 +106,13 @@ model = new_model()
 # ----------------------------- Simulation --------------------------------- #
 def run_mpc():
     # Create models for simulation and planning
-    model = new_model()
-    model_p = new_model()
+    model = new_model(          # ball simulation
+        M_weight=1e-3           # system noise
+    )
+    model_p = new_model(        # catcher planning
+        M_weight=1e-3,          # system noise
+        N_min=1e-3, N_max=1e0,  # observations noise
+    )
 
     # Run MPC
     X_all, U_all, Z_all, B_all, EB_all = Simulator.mpc(model, model_p)
@@ -114,9 +141,11 @@ def run_mpc():
 # ============================================================================
 #                                   Body
 # ============================================================================
+one_plan()
+plt.show()
+
 for i in range(1):
     run_mpc()
-
 plt.show()
 
 

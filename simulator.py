@@ -88,21 +88,28 @@ class Simulator:
         k = 0  # pointer to current catcher observation (= now - n_delay)
         while model.n != 0:
             # Reaction delay compensation
-            eb_all_head = cls.simulate_eb_trajectory(model_p,
-                            model_p.u.repeated(U_all[:, k:k+model_p.n_delay]))
-            model_p.set_initial_state(eb_all_head[-1, 'm'],
-                                eb_all_head[-1, 'm'],
-                                eb_all_head[-1, 'L'] + eb_all_head[-1, 'S'])
+            eb_all_head = cls.simulate_eb_trajectory(
+                model_p,
+                model_p.u.repeated(U_all[:, k:k+model_p.n_delay])
+            )
+            model_p.set_initial_state(
+                eb_all_head[-1, 'm'],
+                eb_all_head[-1, 'm'],
+                eb_all_head[-1, 'L'] + eb_all_head[-1, 'S']
+            )
             if model_p.n == 0:
                 break
 
             # Planner: plan for model_p.n time steps
             plan, lam_x, lam_g = Planner.create_plan(model_p)
-            # plan, lam_x, lam_g = Planner.create_plan(model_p, warm_start=True,
-            #                             x0=plan, lam_x0=lam_x, lam_g0=lam_g)
-            belief_plan, _, _ = Planner.create_belief_plan(model_p,
-                                                    warm_start=True, x0=plan,
-                                                    lam_x0=lam_x, lam_g0=lam_g)
+            # plan, lam_x, lam_g = Planner.create_plan(
+            # model_p, warm_start=True,
+            # x0=plan, lam_x0=lam_x, lam_g0=lam_g
+            # )
+            belief_plan, _, _ = Planner.create_belief_plan(
+                model_p, warm_start=True,
+                x0=plan, lam_x0=lam_x, lam_g0=lam_g
+            )
             u_all = model_p.u.repeated(ca.horzcat(belief_plan['U']))
             # u_all = model_p.u.repeated(ca.horzcat(plan['U']))
 
@@ -112,8 +119,9 @@ class Simulator:
             # cls: execute the first action
             x_all = cls.simulate_trajectory(model, [u_all[0]])
             z_all = cls.simulate_observed_trajectory(model, x_all)
-            b_all = cls.filter_observed_trajectory(model,
-                                                         z_all, [u_all[0]])
+            b_all = cls.filter_observed_trajectory(
+                model, z_all, [u_all[0]]
+            )
 
             # Save simulation results
             X_all.appendColumns(x_all.cast()[:, 1:])
@@ -124,9 +132,11 @@ class Simulator:
 
             # Advance time
             model.set_initial_state(x_all[-1], b_all[-1, 'm'], b_all[-1, 'S'])
-            model_p.set_initial_state(model_p.b(B_all[:, k+1])['m'],
-                                      model_p.b(B_all[:, k+1])['m'],
-                                      model_p.b(B_all[:, k+1])['S'])
+            model_p.set_initial_state(
+                model_p.b(B_all[:, k+1])['m'],
+                model_p.b(B_all[:, k+1])['m'],
+                model_p.b(B_all[:, k+1])['S']
+            )
             k += 1
         return X_all, U_all, Z_all, B_all, EB_all
 
