@@ -38,8 +38,8 @@ def new_model(
         # System noise weight
         M_weight=1e-3,
         # Observation noise
-        N_min=1e-3,  # when looking directly at the ball
-        N_max=1e0,   # when the ball is 90 degrees from the gaze direction
+        N_min=1e-2,  # when looking directly at the ball
+        N_max=1e1,   # when the ball is 90 degrees from the gaze direction
         # Final cost: w_cl * distance_between_ball_and_catcher
         w_cl=1e3,
         # Running cost on controls: u.T * R * u
@@ -158,7 +158,7 @@ def plot_step_by_step(X_all, U_all, Z_all, B_all, EB_all, model):
 # plot_step_by_step(*stuff)
 
 for i in range(4):
-    run_mpc(n_delay=2*i+2, M_weight=1e-2)
+    run_mpc(n_delay=2*i+1, M_weight=1e-3)
 
 
 
