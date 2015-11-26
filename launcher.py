@@ -22,13 +22,15 @@ __author__ = 'belousov'
 # Model creation wrapper
 def new_model(
         # Initial conditions
-        x_b0=0, y_b0=0, z_b0=0, vx_b0=10, vy_b0=5, vz_b0=15,
+        x_b0=0, y_b0=0, z_b0=0, vx_b0=10, vy_b0=5, vz_b0=100,
         x_c0=20, y_c0=5, vx_c0=0, vy_c0=0,
         # Initial covariance
         S0=ca.diagcat([0.1, 0.1, 0, 0.1, 0.1, 0,
                        1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25,
         # Hypercovariance weight
         L0_weight=1e-5,
+        # Mass of the ball
+        mass=0.15,
         # Discretization time step
         dt=0.1,
         # Number of Runge-Kutta integration intervals per time step
@@ -71,7 +73,7 @@ def new_model(
     # Catcher dynamics is less noisy
     M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5
 
-    return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
+    return Model((m0, S0, L0), mass, dt, n_rk, n_delay, (M, N_min, N_max),
                  (w_cl, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
 
 
@@ -119,9 +121,9 @@ def run_mpc(n_delay=1, M_weight=1e-3):
     plot_full(x_all, z_all, b_all)
 
     # Plot heuristics
-    model = new_model()
-    fig = Plotter.plot_heuristics(model, x_all, u_all)
-    plt.show()
+    # model = new_model()
+    # fig = Plotter.plot_heuristics(model, x_all, u_all)
+    # plt.show()
 
     return X_all, U_all, Z_all, B_all, EB_all, model
 
@@ -157,8 +159,8 @@ def plot_step_by_step(X_all, U_all, Z_all, B_all, EB_all, model):
 # stuff = run_mpc()
 # plot_step_by_step(*stuff)
 
-for i in range(4):
-    run_mpc(n_delay=2*i+1, M_weight=1e-3)
+for i in range(1):
+    run_mpc(n_delay=1, M_weight=1e-3)
 
 
 

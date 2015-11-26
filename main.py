@@ -23,10 +23,10 @@ __author__ = 'belousov'
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
 vy_b0 = 4
-vz_b0 = 15
+vz_b0 = 100
 
 x_c0 = 30
-y_c0 = 0
+y_c0 = 2
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
@@ -41,6 +41,8 @@ S0 = ca.diagcat([0.1, 0.1, 0, 1, 1, 0,
                  1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
+# Mass of the ball
+mass = 0.15
 # Discretization step
 dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
@@ -48,11 +50,11 @@ n_rk = 10
 # Reaction time (in units of dt)
 n_delay = 1
 # System noise matrix
-M = ca.DMatrix.eye(m0.size()) * 1e-2
+M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
-N_min = 1e-3  # when looking directly at the ball
-N_max = 1e0   # when the ball is 90 degrees from the gaze direction
+N_min = 1e-2  # when looking directly at the ball
+N_max = 1e1   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
 w_cl = 1e3
 # Running cost on controls: u.T * R * u
@@ -68,7 +70,7 @@ psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
-    return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
+    return Model((m0, S0, L0), mass, dt, n_rk, n_delay, (M, N_min, N_max),
                  (w_cl, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
 
 # Create model

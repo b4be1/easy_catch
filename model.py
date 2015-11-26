@@ -17,8 +17,11 @@ class Model:
     # Air resistance per unit mass (max force 10, max velocity 12)
     mu = 10.0 / 12
 
-    def __init__(self, (m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
+    def __init__(self, (m0, S0, L0), mass, dt, n_rk, n_delay, (M, N_min, N_max),
                  (w_cl, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max)):
+        # Mass of the ball
+        self.mass = mass
+
         # Discretization time step, cannot be changed after creation
         self.dt = dt
 
@@ -137,7 +140,8 @@ class Model:
         z_b0 = self.m0['z_b']
         vz_b0 = self.m0['vz_b']
         # 2. Use kinematic equation of the ball to find time
-        T = (vz_b0 + ca.sqrt(vz_b0 ** 2 + 2 * self.g * z_b0)) / self.g
+        T = (vz_b0 + ca.sqrt(vz_b0 ** 2 + 2 * self.g * z_b0 / self.mass))\
+            / (self.g / self.mass)
         # 3. Divide time by time-step duration
         return int(float(T) // self.dt)
 
@@ -184,7 +188,7 @@ class Model:
         rhs['z_b'] = vz_b
         rhs['vx_b'] = 0
         rhs['vy_b'] = 0
-        rhs['vz_b'] = -self.g
+        rhs['vz_b'] = -self.g / self.mass
         rhs['x_c'] = vx_c
         rhs['y_c'] = vy_c
         rhs['vx_c'] = F_c * ca.cos(phi + theta) - self.mu * vx_c
