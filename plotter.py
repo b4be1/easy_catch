@@ -335,7 +335,7 @@ class Plotter:
         ax[0, 1].set_title('Generalized OAC (GOAC)')
         ax[0, 1].set_xlabel('time, sec')
         ax[0, 1].set_ylabel('$\delta$, deg')
-        ax[0, 1].yaxis.label.set_color('b')
+        # ax[0, 1].yaxis.label.set_color('b')
         ax[0, 1].grid(True)
         ax[0, 1].legend(loc='upper left')
 

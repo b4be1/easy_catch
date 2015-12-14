@@ -23,9 +23,9 @@ __author__ = 'belousov'
 x_b0 = y_b0 = z_b0 = 0
 vx_b0 = 10
 vy_b0 = 4
-vz_b0 = 100
+vz_b0 = 15
 
-x_c0 = 30
+x_c0 = 20
 y_c0 = 2
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
@@ -70,7 +70,7 @@ psi_max = 0.8 * ca.pi/2
 
 # Model creation wrapper
 def new_model():
-    return Model((m0, S0, L0), mass, dt, n_rk, n_delay, (M, N_min, N_max),
+    return Model((m0, S0, L0), dt, n_rk, n_delay, (M, N_min, N_max),
                  (w_cl, R, w_Sl, w_S), (F_c1, F_c2, w_max, psi_max))
 
 # Create model
