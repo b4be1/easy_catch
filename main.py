@@ -25,8 +25,8 @@ vx_b0 = 10
 vy_b0 = 4
 vz_b0 = 15
 
-x_c0 = 20
-y_c0 = 2
+x_c0 = 25
+y_c0 = 3
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:
@@ -37,24 +37,22 @@ psi0 = 0
 m0 = ca.DMatrix([x_b0, y_b0, z_b0, vx_b0, vy_b0, vz_b0,
                  x_c0, y_c0, vx_c0, vy_c0, phi0, psi0])
 # Initial covariance
-S0 = ca.diagcat([0.1, 0.1, 0, 1, 1, 0,
+S0 = ca.diagcat([0.1, 0.1, 0, 0.1, 0.1, 0,
                  1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
-# Mass of the ball
-mass = 0.15
 # Discretization step
 dt = 0.1
 # Number of Runge-Kutta integration intervals per time step
 n_rk = 10
 # Reaction time (in units of dt)
-n_delay = 1
+n_delay = 2
 # System noise matrix
 M = ca.DMatrix.eye(m0.size()) * 1e-3
 M[-6:, -6:] = ca.DMatrix.eye(6) * 1e-5  # catcher's dynamics is less noisy
 # Observation noise
 N_min = 1e-2  # when looking directly at the ball
-N_max = 1e1   # when the ball is 90 degrees from the gaze direction
+N_max = 1e0   # when the ball is 90 degrees from the gaze direction
 # Final cost: w_cl * distance_between_ball_and_catcher
 w_cl = 1e3
 # Running cost on controls: u.T * R * u
