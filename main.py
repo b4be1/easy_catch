@@ -25,8 +25,8 @@ vx_b0 = 10
 vy_b0 = 4
 vz_b0 = 15
 
-x_c0 = 25
-y_c0 = 3
+x_c0 = 34
+y_c0 = 4
 vx_c0 = vy_c0 = 0
 phi0 = ca.arctan2(y_b0-y_c0, x_b0-x_c0)  # direction towards the ball
 if phi0 < 0:

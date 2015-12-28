@@ -22,8 +22,8 @@ __author__ = 'belousov'
 # Model creation wrapper
 def new_model(
         # Initial conditions
-        x_b0=0, y_b0=0, z_b0=0, vx_b0=10, vy_b0=5, vz_b0=15,
-        x_c0=20, y_c0=5, vx_c0=0, vy_c0=0,
+        x_b0=0, y_b0=0, z_b0=0, vx_b0=10, vy_b0=4, vz_b0=15,
+        x_c0=34, y_c0=4, vx_c0=0, vy_c0=0,
         # Initial covariance
         S0=ca.diagcat([0.1, 0.1, 0, 0.1, 0.1, 0,
                        1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25,
@@ -41,7 +41,7 @@ def new_model(
         M_weight=1e-3,
         # Observation noise
         N_min=1e-2,  # when looking directly at the ball
-        N_max=1e1,   # when the ball is 90 degrees from the gaze direction
+        N_max=1e0,   # when the ball is 90 degrees from the gaze direction
         # Final cost: w_cl * distance_between_ball_and_catcher
         w_cl=1e3,
         # Running cost on controls: u.T * R * u
