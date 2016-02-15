@@ -10,6 +10,9 @@ import casadi as ca
 
 __author__ = 'belousov'
 
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
+
 
 class Plotter:
     # ========================================================================
@@ -59,9 +62,9 @@ class Plotter:
     # ---------------------------- Trajectory ------------------------------ #
     @classmethod
     def plot_trajectory(cls, ax, x_all):
-        [catcher_handle] = cls._plot_trajectory('Catcher trajectory',
+        [catcher_handle] = cls._plot_trajectory("Catcher's trajectory",
                                        ax, x_all, ('x_c', 'y_c'))
-        [gaze_handle] = cls._plot_arrows('Catcher gaze', ax,
+        [gaze_handle] = cls._plot_arrows("Catcher's gaze", ax,
                          x_all[:, 'x_c'], x_all[:, 'y_c'], x_all[:, 'phi'])
         [ball_handle] = cls._plot_trajectory('Ball trajectory',
                                     ax, x_all, ('x_b', 'y_b'))
@@ -258,11 +261,12 @@ class Plotter:
     # --------------------------- Heuristics ------------------------------- #
     @staticmethod
     def plot_heuristics(model, x_all, u_all, n_last=2):
+        n_interm_points = 301
         n = len(x_all[:])
         t_all = np.linspace(0, (n - 1) * model.dt, n)
-        t_all_dense = np.linspace(t_all[0], t_all[-1], 301)
+        t_all_dense = np.linspace(t_all[0], t_all[-1], n_interm_points)
 
-        fig, ax = plt.subplots(2, 2, figsize=(12, 12))
+        fig, ax = plt.subplots(2, 2, figsize=(10, 10))
 
         # ---------------- Optic acceleration cancellation ----------------- #
         oac = []
@@ -280,11 +284,11 @@ class Plotter:
 
         # Plot OAC
         ax[0, 0].plot(t_all[:-n_last], oac[:-n_last],
-                      label='$\\tan\\alpha \\approx (const)t$')
-        ax[0, 0].plot(t_all, fit_oac_fn(t_all), '--k', label='linear fit')
+                label=r"OAC: $\tan\alpha \approx (\textrm{const}) t$")
+        ax[0, 0].plot(t_all, fit_oac_fn(t_all), '--k', label='Linear fit')
         ax[0, 0].set_title('Optic acceleration cancellation (OAC)')
-        ax[0, 0].set_xlabel('time, sec')
-        ax[0, 0].set_ylabel('$\\tan \\alpha$')
+        ax[0, 0].set_xlabel('Time $t$ [sec]')
+        ax[0, 0].set_ylabel(r"Tangent of the elevation angle $\tan\alpha$")
         ax[0, 0].grid(True)
         ax[0, 0].legend(loc='upper left')
 
@@ -307,15 +311,16 @@ class Plotter:
         t_part_dense = np.linspace(t_all[0], t_all[-n_last-1], 301)
         cba_smooth = spline(t_all[:-n_last], cba[:-n_last], t_part_dense)
         ax[1, 0].plot(t_part_dense, cba_smooth,
-                      label='$\gamma \\approx const$')
+                      label=r'CBA: $\gamma \approx \textrm{const}$')
 
         # Plot CBA
         # ax[1, 0].plot(t_all[:-n_last], cba[:-n_last],
         #               label='$\gamma \\approx const$')
-        ax[1, 0].plot(t_all, fit_cba_fn(t_all), '--k', label='constant fit')
+        ax[1, 0].plot(t_all, fit_cba_fn(t_all), '--k', label='Constant fit')
+        ax[1, 0].set_ylim(0, 30)
         ax[1, 0].set_title('Constant bearing angle (CBA)')
-        ax[1, 0].set_xlabel('time, sec')
-        ax[1, 0].set_ylabel('$\gamma$, deg')
+        ax[1, 0].set_xlabel(r'Time $t$ [sec]')
+        ax[1, 0].set_ylabel(r'Bearing angle $\gamma$ [deg]')
         ax[1, 0].grid(True)
         ax[1, 0].legend(loc='upper left')
 
@@ -324,17 +329,24 @@ class Plotter:
                             model.m0['phi'] - x_all[:, 'phi'],
                             t_all_dense)
 
+        n_many_last = n_last *\
+                      n_interm_points / (t_all[-1] - t_all[0]) * model.dt
         # Delta
-        ax[0, 1].plot(t_all_dense, np.rad2deg(goac_smooth), 'b-',
-                   label='$\delta \\approx 0$')
-        ax[0, 1].plot([t_all[0], t_all[-1]], [30, 30], 'k--',
-                      label='experimental bound')
-        ax[0, 1].plot([t_all[0], t_all[-1]], [-30, -30], 'k--')
-        ax[0, 1].set_ylim(-60, 60)
-        ax[0, 1].yaxis.set_ticks(range(-60, 70, 30))
-        ax[0, 1].set_title('Generalized OAC (GOAC)')
-        ax[0, 1].set_xlabel('time, sec')
-        ax[0, 1].set_ylabel('$\delta$, deg')
+        ax[0, 1].plot(t_all_dense[:-n_many_last],
+                      np.rad2deg(goac_smooth[:-n_many_last]), 'b-',
+                   label=r"GOAC: $\delta \approx \gamma$")
+        # Gamma
+        ax[0, 1].plot(t_all[:-n_last], cba[:-n_last], 'kx',
+                      label=r'Bearing angle $\gamma \approx \textrm{const}$')
+        # ax[0, 1].plot([t_all[0], t_all[-1]], [30, 30], 'k--',
+        #               label='experimental bound')
+        # ax[0, 1].plot([t_all[0], t_all[-1]], [-30, -30], 'k--')
+        ax[0, 1].set_ylim(-30, 30)
+        # ax[0, 1].yaxis.set_ticks(range(-60, 70, 30))
+        ax[0, 1].set_title('Tracking heuristic (part of GOAC)')
+        ax[0, 1].set_xlabel(r'Time $t$ [sec]')
+        ax[0, 1].set_ylabel(r'Angle of rotation of the visual system '
+                            r'$\delta$ [deg]')
         # ax[0, 1].yaxis.label.set_color('b')
         ax[0, 1].grid(True)
         ax[0, 1].legend(loc='upper left')
@@ -377,13 +389,15 @@ class Plotter:
         # Plot
         ax[1, 1].scatter(lot_alpha[model.n_delay:-n_last],
                          lot_beta[model.n_delay:-n_last],
-                         label='$\\tan\\beta \\approx (const) \\tan\\alpha$')
+                         label=r"LOT: $\tan\beta\approx"
+                               r"(\textrm{const})\tan\alpha$")
         ax[1, 1].plot(lot_alpha[model.n_delay:-n_last],
                       fit_lot_fn(lot_alpha[model.n_delay:-n_last]),
-                      '--k', label='linear fit')
-        ax[1, 1].set_title('Linear optic trajectory (LOT)')
-        ax[1, 1].set_xlabel('$\\tan\\alpha$')
-        ax[1, 1].set_ylabel('$\\tan\\beta$')
+                      '--k', label='Linear fit')
+        ax[1, 1].set_title('Linear optical trajectory (LOT)')
+        ax[1, 1].set_xlabel(r'Tangent of the elevation angle $\tan\alpha$')
+        ax[1, 1].set_ylabel(r'Tangent of the horizontal '
+                            r'optical angle $\tan\beta$')
         ax[1, 1].grid(True)
         ax[1, 1].legend(loc='upper left')
 
