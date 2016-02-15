@@ -41,7 +41,7 @@ def new_model(
         M_weight=1e-3,
         # Observation noise
         N_min=1e-2,  # when looking directly at the ball
-        N_max=1e1,   # when the ball is 90 degrees from the gaze direction
+        N_max=1e0,   # when the ball is 90 degrees from the gaze direction
         # Final cost: w_cl * distance_between_ball_and_catcher
         w_cl=1e3,
         # Running cost on controls: u.T * R * u
