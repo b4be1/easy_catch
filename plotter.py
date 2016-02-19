@@ -125,10 +125,12 @@ class Plotter:
         """Complete plan"""
         handles = cls._plot_plan(ax, eb_all, ('x_b', 'y_b'))
         cls._plot_plan(ax, eb_all, ('x_c', 'y_c'))
-        cls._plot_arrows('Catcher gaze', ax,
+        handles.extend(
+            cls._plot_arrows("Catcher's gaze", ax,
                          eb_all[:, 'm', 'x_c'],
                          eb_all[:, 'm', 'y_c'],
                          eb_all[:, 'm', 'phi'])
+        )
         # Appearance
         ax.grid(True)
 

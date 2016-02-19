@@ -159,8 +159,8 @@ def plot_step_by_step(X_all, U_all, Z_all, B_all, EB_all, model):
 # stuff = run_mpc()
 # plot_step_by_step(*stuff)
 
-for i in range(1):
-    run_mpc(n_delay=5, M_weight=1e-3)
+for i in range(8):
+    run_mpc(n_delay=1+i, M_weight=10**(-1) * 1e-2)
 
 
 
