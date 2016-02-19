@@ -285,8 +285,7 @@ class Plotter:
         fit_oac_fn = np.poly1d(fit_oac)
 
         # Plot OAC
-        ax[0, 0].plot(t_all[:-n_last], oac[:-n_last],
-                label=r"OAC: $\tan\alpha \approx (\textrm{const}) t$")
+        ax[0, 0].plot(t_all[:-n_last], oac[:-n_last], label='Simulation')
         ax[0, 0].plot(t_all, fit_oac_fn(t_all), '--k', label='Linear fit')
         ax[0, 0].set_title('Optic acceleration cancellation (OAC)')
         ax[0, 0].set_xlabel('Time $t$ [sec]')
@@ -312,8 +311,7 @@ class Plotter:
         # Smoothen the trajectory
         t_part_dense = np.linspace(t_all[0], t_all[-n_last-1], 301)
         cba_smooth = spline(t_all[:-n_last], cba[:-n_last], t_part_dense)
-        ax[1, 0].plot(t_part_dense, cba_smooth,
-                      label=r'CBA: $\gamma \approx \textrm{const}$')
+        ax[1, 0].plot(t_part_dense, cba_smooth, label='Simulation')
 
         # Plot CBA
         # ax[1, 0].plot(t_all[:-n_last], cba[:-n_last],
@@ -336,10 +334,10 @@ class Plotter:
         # Delta
         ax[0, 1].plot(t_all_dense[:-n_many_last],
                       np.rad2deg(goac_smooth[:-n_many_last]), 'b-',
-                   label=r"GOAC: $\delta \approx \gamma$")
+                   label=r'Rotation angle $\delta$ (simulation)')
         # Gamma
         ax[0, 1].plot(t_all[:-n_last], cba[:-n_last], 'kx',
-                      label=r'Bearing angle $\gamma \approx \textrm{const}$')
+                      label=r'Bearing angle $\gamma$ (simulation)')
         # ax[0, 1].plot([t_all[0], t_all[-1]], [30, 30], 'k--',
         #               label='experimental bound')
         # ax[0, 1].plot([t_all[0], t_all[-1]], [-30, -30], 'k--')
@@ -347,8 +345,7 @@ class Plotter:
         # ax[0, 1].yaxis.set_ticks(range(-60, 70, 30))
         ax[0, 1].set_title('Tracking heuristic (part of GOAC)')
         ax[0, 1].set_xlabel(r'Time $t$ [sec]')
-        ax[0, 1].set_ylabel(r'Angle of rotation of the visual system '
-                            r'$\delta$ [deg]')
+        ax[0, 1].set_ylabel(r'Angle [deg]')
         # ax[0, 1].yaxis.label.set_color('b')
         ax[0, 1].grid(True)
         ax[0, 1].legend(loc='upper left')
@@ -391,8 +388,7 @@ class Plotter:
         # Plot
         ax[1, 1].scatter(lot_alpha[model.n_delay:-n_last],
                          lot_beta[model.n_delay:-n_last],
-                         label=r"LOT: $\tan\beta\approx"
-                               r"(\textrm{const})\tan\alpha$")
+                         label='Simulation')
         ax[1, 1].plot(lot_alpha[model.n_delay:-n_last],
                       fit_lot_fn(lot_alpha[model.n_delay:-n_last]),
                       '--k', label='Linear fit')

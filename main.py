@@ -37,7 +37,7 @@ psi0 = 0
 m0 = ca.DMatrix([x_b0, y_b0, z_b0, vx_b0, vy_b0, vz_b0,
                  x_c0, y_c0, vx_c0, vy_c0, phi0, psi0])
 # Initial covariance
-S0 = ca.diagcat([0.1, 0.1, 0, 0.2, 0.2, 0,
+S0 = ca.diagcat([0.2, 0.2, 0, 0.5, 0.5, 0,
                  1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2]) * 0.25
 # Hypercovariance
 L0 = ca.DMatrix.eye(m0.size()) * 1e-5
@@ -187,12 +187,14 @@ Plotter.plot_mpc(fig, axes, xlim, ylim,
 # -------------------------- Plot full simulation -------------------------- #
 # Plot 2D
 fig, ax = plt.subplots()
-fig.tight_layout()
 handles = Plotter.plot_trajectory(ax, x_all)
 handles.extend(Plotter.plot_observed_ball_trajectory(ax, z_all))
 handles.extend(Plotter.plot_filtered_trajectory(ax, b_all))
 ax.legend(handles=handles, loc='upper left')
 ax.set_aspect('equal')
+ax.set_xlabel('Distance $x$ [m]')
+ax.set_ylabel('Distance $y$ [m]')
+fig.tight_layout()
 
 # Plot 3D
 # fig_3D = plt.figure(figsize=(10, 10))
