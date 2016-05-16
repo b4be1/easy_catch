@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 
+from sys import path
+path.append(r"/Users/b4be1/local/casadi-py27-np1.9.1-v3.0.0")
 import casadi as ca
 
 from model import Model

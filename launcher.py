@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 
+from sys import path
+path.append(r".../casadi-py27-np1.9.1-v3.0.0")
 import casadi as ca
 
 from model import Model
@@ -159,7 +161,7 @@ def plot_step_by_step(X_all, U_all, Z_all, B_all, EB_all, model):
 # stuff = run_mpc()
 # plot_step_by_step(*stuff)
 
-for i in range(8):
+for i in range(1):
     run_mpc(n_delay=1+i, M_weight=10**(-1) * 1e-2)
 
 
