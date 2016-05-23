@@ -76,7 +76,7 @@ class Plotter:
         x = x_all[:, xl]
         y = x_all[:, yl]
         return ax.plot(x, y, label=name, lw=0.8, alpha=0.8, color='g',
-                       marker='o', markersize=4, fillstyle='none')
+                       marker='.', markersize=4, fillstyle='none')
 
     # --------------------------- Observations ----------------------------- #
     @classmethod
@@ -91,11 +91,11 @@ class Plotter:
     def plot_filtered_trajectory(cls, ax, b_all):
         # Plot line
         [mean_handle] = cls._plot_filtered_ball_mean(
-            'Filtered ball trajectory', ax, b_all)
+            'Belief trajectory, mean', ax, b_all)
 
         # Plot ellipses
         [cov_handle] = cls._plot_filtered_ball_cov(
-            'Filtered ball covariance', ax, b_all)
+            'Belief trajectory, covariance', ax, b_all)
 
         # Return handles for the legend
         return [mean_handle, cov_handle]
@@ -112,12 +112,22 @@ class Plotter:
         for k in range(b_all.shape[1]):
             e = cls._create_ellipse(b_all[k, 'm', ['x_b', 'y_b']],
                                 b_all[k, 'S', ['x_b', 'y_b'], ['x_b', 'y_b']])
-            e.set_color('c')
+            #e.set_fill(False)
+            #e.set_facecolor('none')
+            e.set_color('darkturquoise')
+            e.set_edgecolor('k')
+            e.set_alpha(0.2)
+            e.set_linewidth(0.5)
+            e.set_aa(True)
+            e.set_antialiased(True)
+            e.set_zorder(1)
             ax.add_patch(e)
         # return [Patch(color='cyan', alpha=0.1, label=name)]
         return [Line2D(b_all[0, 'm', 'x_b'], b_all[0, 'm', 'y_b'],
-                       label=name, color='white', alpha=0.1,
-                       marker='o', markersize=13, markerfacecolor='cyan')]
+                       label=name, color='white', alpha=0.8,
+                       marker='o', markersize=12, lw=0.2,
+                       markerfacecolor='darkturquoise',
+                       markeredgecolor='black')]
 
     # ------------------------ Planned trajectory -------------------------- #
     @classmethod
@@ -169,10 +179,11 @@ class Plotter:
             e.set_fill(False)
             e.set_color('r')
             e.set_alpha(0.4)
+            e.set_lw(1.0)
             ax.add_patch(e)
         return [Line2D(mus[0][0], mus[0][1],
                        label=name, color='white',
-                       marker='o', markersize=15,
+                       marker='o', markersize=12,
                        markerfacecolor='white', markeredgecolor='red')]
 
     @classmethod
@@ -183,7 +194,7 @@ class Plotter:
             ax.add_patch(e)
         return [Line2D(mus[0][0], mus[0][1],
                        label=name, color='white', alpha=0.3,
-                       marker='o', markersize=15,
+                       marker='o', markersize=12,
                        markerfacecolor='yellow', markeredgecolor='yellow')]
 
     @classmethod
@@ -194,10 +205,11 @@ class Plotter:
             e.set_fill(False)
             e.set_color('g')
             e.set_alpha(0.1)
+            e.set_lw(1.0)
             ax.add_patch(e)
         return [Line2D(mus[0][0], mus[0][1],
                        label=name, color='white',
-                       marker='o', markersize=15,
+                       marker='o', markersize=12,
                        markerfacecolor='white', markeredgecolor='green')]
 
     # --------------------- Model predictive control ----------------------- #
@@ -285,13 +297,11 @@ class Plotter:
         fit_oac_fn = np.poly1d(fit_oac)
 
         # Plot OAC
-        ax[0, 0].plot(t_all[:-n_last], oac[:-n_last], label='Simulation')
+        ax[0, 0].plot(t_all[:-n_last], oac[:-n_last],
+                      label='Simulation', lw=3)
         ax[0, 0].plot(t_all, fit_oac_fn(t_all), '--k', label='Linear fit')
-        ax[0, 0].set_title('Optic acceleration cancellation (OAC)')
-        ax[0, 0].set_xlabel('Time $t$ [sec]')
-        ax[0, 0].set_ylabel(r"Tangent of the elevation angle $\tan\alpha$")
-        ax[0, 0].grid(True)
-        ax[0, 0].legend(loc='upper left')
+
+
 
         # ------------------- Constant bearing angle ----------------------- #
         cba = []
@@ -311,18 +321,15 @@ class Plotter:
         # Smoothen the trajectory
         t_part_dense = np.linspace(t_all[0], t_all[-n_last-1], 301)
         cba_smooth = spline(t_all[:-n_last], cba[:-n_last], t_part_dense)
-        ax[1, 0].plot(t_part_dense, cba_smooth, label='Simulation')
+        ax[1, 0].plot(t_part_dense, cba_smooth, lw=3, label='Simulation')
 
         # Plot CBA
         # ax[1, 0].plot(t_all[:-n_last], cba[:-n_last],
         #               label='$\gamma \\approx const$')
         ax[1, 0].plot(t_all, fit_cba_fn(t_all), '--k', label='Constant fit')
-        ax[1, 0].set_ylim(0, 30)
-        ax[1, 0].set_title('Constant bearing angle (CBA)')
-        ax[1, 0].set_xlabel(r'Time $t$ [sec]')
-        ax[1, 0].set_ylabel(r'Bearing angle $\gamma$ [deg]')
-        ax[1, 0].grid(True)
-        ax[1, 0].legend(loc='upper left')
+
+
+
 
         # ---------- Generalized optic acceleration cancellation ----------- #
         goac_smooth = spline(t_all,
@@ -333,22 +340,17 @@ class Plotter:
                       n_interm_points / (t_all[-1] - t_all[0]) * model.dt
         # Delta
         ax[0, 1].plot(t_all_dense[:-n_many_last],
-                      np.rad2deg(goac_smooth[:-n_many_last]), 'b-',
-                   label=r'Rotation angle $\delta$ (simulation)')
+                      np.rad2deg(goac_smooth[:-n_many_last]), lw=3,
+                      label=r'Rotation angle $\delta$')
         # Gamma
-        ax[0, 1].plot(t_all[:-n_last], cba[:-n_last], 'kx',
-                      label=r'Bearing angle $\gamma$ (simulation)')
+        ax[0, 1].plot(t_all[:-n_last], cba[:-n_last], '--', lw=2,
+                      label=r'Bearing angle $\gamma$')
         # ax[0, 1].plot([t_all[0], t_all[-1]], [30, 30], 'k--',
         #               label='experimental bound')
         # ax[0, 1].plot([t_all[0], t_all[-1]], [-30, -30], 'k--')
-        ax[0, 1].set_ylim(-30, 30)
         # ax[0, 1].yaxis.set_ticks(range(-60, 70, 30))
-        ax[0, 1].set_title('Tracking heuristic (part of GOAC)')
-        ax[0, 1].set_xlabel(r'Time $t$ [sec]')
-        ax[0, 1].set_ylabel(r'Angle [deg]')
-        # ax[0, 1].yaxis.label.set_color('b')
-        ax[0, 1].grid(True)
-        ax[0, 1].legend(loc='upper left')
+
+
 
         # Derivative of delta
         # ax0_twin = ax[0, 1].twinx()
@@ -392,15 +394,9 @@ class Plotter:
         ax[1, 1].plot(lot_alpha[model.n_delay:-n_last],
                       fit_lot_fn(lot_alpha[model.n_delay:-n_last]),
                       '--k', label='Linear fit')
-        ax[1, 1].set_title('Linear optical trajectory (LOT)')
-        ax[1, 1].set_xlabel(r'Tangent of the elevation angle $\tan\alpha$')
-        ax[1, 1].set_ylabel(r'Tangent of the horizontal '
-                            r'optical angle $\tan\beta$')
-        ax[1, 1].grid(True)
-        ax[1, 1].legend(loc='upper left')
 
         fig.tight_layout()
-        return fig
+        return fig, ax
 
     # ========================================================================
     #                                3D

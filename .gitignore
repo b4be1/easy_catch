@@ -1,5 +1,6 @@
 # Created by .ignore support plugin (hsz.mobi)
 py2.7_venv
+matplotlib
 
 ### OSX template
 .DS_Store

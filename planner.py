@@ -35,7 +35,7 @@ class Planner:
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
         op = {# Linear solver
-              'linear_solver':              'ma57',
+              #'linear_solver':              'ma57',
               # Acceptable termination
               'acceptable_iter':            5}
 
@@ -94,9 +94,9 @@ class Planner:
             r_cos_omega = ca.mul(d.T, r)
             if warm_start:
                 cos_omega = r_cos_omega / (ca.norm_2(r) + 1e-6)
-                stage_cost += 1e0 * (1 - cos_omega)
+                stage_cost += 1e-1 * (1 - cos_omega)
             else:
-                stage_cost -= 1e0 * r_cos_omega * model.dt
+                stage_cost -= 1e-1 * r_cos_omega * model.dt
 
             running_cost += stage_cost
         return final_cost + running_cost
@@ -148,16 +148,16 @@ class Planner:
         # Formulate non-linear problem
         nlp = ca.SXFunction('nlp', ca.nlpIn(x=V), ca.nlpOut(f=J, g=g))
         op = {# Linear solver
-              'linear_solver':              'ma57',
+              #'linear_solver':              'ma57',
               # Warm start
               # 'warm_start_init_point':      'yes',
               # Termination
-              'max_iter':                   500,
-              'tol':                        1e-3,
-              'constr_viol_tol':            1e-3,
-              'compl_inf_tol':              1e-3,
+              'max_iter':                   1500,
+              'tol':                        1e-6,
+              'constr_viol_tol':            1e-5,
+              'compl_inf_tol':              1e-4,
               # Acceptable termination
-              'acceptable_tol':             1e-1,
+              'acceptable_tol':             1e-3,
               'acceptable_iter':            5,
               'acceptable_obj_change_tol':  1e-2,
               # NLP
